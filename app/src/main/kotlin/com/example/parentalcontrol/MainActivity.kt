@@ -156,11 +156,6 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    @Composable
-    fun AppRuleItem(app: AppInfo, rulesManager: RulesManager, firebaseSyncManager: FirebaseSyncManager) {
-        // Renaming to avoid conflict if needed, or just update the signature above
-    }
-
     data class AppInfo(val name: String, val packageName: String, val icon: Drawable?)
 
     private fun getInstalledAppsWithNames(): List<AppInfo> {
