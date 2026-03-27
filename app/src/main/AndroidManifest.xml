@@ -31,6 +31,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".BlockActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ParentalControl" />
+
         <!-- Monitoring Service -->
         <service
             android:name=".services.MonitoringService"

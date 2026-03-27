@@ -4,15 +4,23 @@ import android.app.*
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.location.Location
 import android.os.Build
 import android.os.IBinder
+import android.os.Looper
 import androidx.core.app.NotificationCompat
+import com.example.parentalcontrol.models.Rule
+import com.google.android.gms.location.*
 import java.util.*
 
 class MonitoringService : Service() {
 
     private val CHANNEL_ID = "ParentalControlChannel"
     private var timer: Timer? = null
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
+
+    private val blockedApps = listOf("com.android.settings", "com.android.vending") // Mock rules
 
     override fun onCreate() {
         super.onCreate()
@@ -23,6 +31,30 @@ class MonitoringService : Service() {
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .build()
         startForeground(1, notification)
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        setupLocationTracking()
+    }
+
+    private fun setupLocationTracking() {
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
+            .setMinUpdateIntervalMillis(5000)
+            .build()
+
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                for (location in locationResult.locations) {
+                    println("TRACKING LOCATION: ${location.latitude}, ${location.longitude}")
+                    // Here we will sync with Firebase later
+                }
+            }
+        }
+
+        try {
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+        } catch (e: SecurityException) {
+            println("Location permission not granted for background tracking")
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -47,21 +79,18 @@ class MonitoringService : Service() {
         if (stats != null && stats.isNotEmpty()) {
             val sortedStats = stats.sortedByDescending { it.lastTimeUsed }
             val currentApp = sortedStats[0].packageName
+            println("CURRENT APP: $currentApp")
             
-            // Example Blocking Logic
-            if (currentApp == "com.android.settings") { // Just an example, block Settings
+            if (blockedApps.contains(currentApp)) {
                 showBlockOverlay()
             }
         }
     }
 
     private fun showBlockOverlay() {
-        // Logic to show an overlay window or redirect to a block screen
-        // For now, we'll just log and potentially launch a block activity
-        println("BLOCKING APP DETECTED")
-        // val intent = Intent(this, BlockActivity::class.java)
-        // intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        // startActivity(intent)
+        val intent = Intent(this, BlockActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        startActivity(intent)
     }
 
     private fun createNotificationChannel() {
@@ -80,6 +109,7 @@ class MonitoringService : Service() {
 
     override fun onDestroy() {
         timer?.cancel()
+        fusedLocationClient.removeLocationUpdates(locationCallback)
         super.onDestroy()
     }
 }
