@@ -8,8 +8,10 @@ import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.example.parentalcontrol.models.Rule
+import com.example.parentalcontrol.utils.FirebaseSyncManager
 import com.example.parentalcontrol.utils.RulesManager
 import com.google.android.gms.location.*
 import java.util.*
@@ -21,6 +23,7 @@ class MonitoringService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private lateinit var rulesManager: RulesManager
+    private lateinit var firebaseSyncManager: FirebaseSyncManager
 
     override fun onCreate() {
         super.onCreate()
@@ -33,8 +36,19 @@ class MonitoringService : Service() {
         startForeground(1, notification)
 
         rulesManager = RulesManager(this)
+        
+        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        firebaseSyncManager = FirebaseSyncManager(androidId)
+        
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         setupLocationTracking()
+        
+        // Listen for remote rule changes
+        firebaseSyncManager.listenForRules { remoteRules ->
+            if (remoteRules.isNotEmpty()) {
+                rulesManager.saveRules(remoteRules)
+            }
+        }
     }
 
     private fun setupLocationTracking() {
@@ -46,7 +60,7 @@ class MonitoringService : Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 for (location in locationResult.locations) {
                     println("TRACKING LOCATION: ${location.latitude}, ${location.longitude}")
-                    // Here we will sync with Firebase later
+                    firebaseSyncManager.syncLocation(location.latitude, location.longitude)
                 }
             }
         }

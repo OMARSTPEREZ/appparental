@@ -25,8 +25,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import android.provider.Settings
 import com.example.parentalcontrol.models.Rule
 import com.example.parentalcontrol.services.MonitoringService
+import com.example.parentalcontrol.utils.FirebaseSyncManager
 import com.example.parentalcontrol.utils.RulesManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -48,6 +50,8 @@ class MainActivity : ComponentActivity() {
         var hasUsageStats by remember { mutableStateOf(hasUsageStatsPermission(this)) }
         var hasOverlay by remember { mutableStateOf(Settings.canDrawOverlays(this)) }
         val rulesManager = remember { RulesManager(this@MainActivity) }
+        val androidId = remember { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) }
+        val firebaseSyncManager = remember { FirebaseSyncManager(androidId) }
         
         var installedApps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
         val scope = rememberCoroutineScope()
@@ -101,7 +105,7 @@ class MainActivity : ComponentActivity() {
             
             LazyColumn(modifier = Modifier.fillWeight(1f)) {
                 items(installedApps) { app ->
-                    AppRuleItem(app, rulesManager)
+                    AppRuleItem(app, rulesManager, firebaseSyncManager)
                 }
             }
         }
@@ -119,7 +123,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun AppRuleItem(app: AppInfo, rulesManager: RulesManager) {
+    fun AppRuleItem(app: AppInfo, rulesManager: RulesManager, firebaseSyncManager: FirebaseSyncManager) {
         var isBlocked by remember { mutableStateOf(rulesManager.isAppBlocked(app.packageName)) }
         
         ListItem(
@@ -143,10 +147,18 @@ class MainActivity : ComponentActivity() {
                         currentRules.removeAll { r -> r.packageName == app.packageName }
                         currentRules.add(Rule(app.packageName, it))
                         rulesManager.saveRules(currentRules)
+                        
+                        // Sync with Firebase
+                        firebaseSyncManager.updateRulesInCloud(currentRules)
                     }
                 )
             }
         )
+    }
+
+    @Composable
+    fun AppRuleItem(app: AppInfo, rulesManager: RulesManager, firebaseSyncManager: FirebaseSyncManager) {
+        // Renaming to avoid conflict if needed, or just update the signature above
     }
 
     data class AppInfo(val name: String, val packageName: String, val icon: Drawable?)
