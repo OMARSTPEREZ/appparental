@@ -7,17 +7,29 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import androidx.activity.ComponentActivity
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import com.example.parentalcontrol.models.Rule
 import com.example.parentalcontrol.services.MonitoringService
 import com.example.parentalcontrol.utils.RulesManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,71 +47,120 @@ class MainActivity : ComponentActivity() {
     fun MainScreen() {
         var hasUsageStats by remember { mutableStateOf(hasUsageStatsPermission(this)) }
         var hasOverlay by remember { mutableStateOf(Settings.canDrawOverlays(this)) }
+        val rulesManager = remember { RulesManager(this@MainActivity) }
+        
+        var installedApps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
+        val scope = rememberCoroutineScope()
+
+        LaunchedEffect(Unit) {
+            installedApps = withContext(Dispatchers.IO) {
+                getInstalledAppsWithNames()
+            }
+        }
 
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "Parental Control Setup", style = MaterialTheme.typography.headlineMedium)
+            Text(text = "Parental Admin Panel", style = MaterialTheme.typography.headlineMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Permission Status Row
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatusChip("Usage Stats", hasUsageStats)
+                StatusChip("Overlay", hasOverlay)
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
-            PermissionButton("Usage Stats Permission", hasUsageStats) {
-                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            // Control Buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Button(onClick = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) {
+                    Text("Permissions")
+                }
+                Button(
+                    onClick = {
+                        val intent = Intent(this@MainActivity, MonitoringService::class.java)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                    },
+                    enabled = hasUsageStats && hasOverlay,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Text("Start Service")
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            PermissionButton("Overlay Permission", hasOverlay) {
-                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-                startActivity(intent)
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            val rulesManager = remember { RulesManager(this@MainActivity) }
-            var isSettingsBlocked by remember { mutableStateOf(rulesManager.isAppBlocked("com.android.settings")) }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Block Settings App")
-                Switch(
-                    checked = isSettingsBlocked,
-                    onCheckedChange = { 
-                        isSettingsBlocked = it
-                        rulesManager.saveRules(listOf(Rule("com.android.settings", it)))
-                    }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = {
-                    val intent = Intent(this@MainActivity, MonitoringService::class.java)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent)
-                    } else {
-                        startService(intent)
-                    }
-                },
-                enabled = hasUsageStats && hasOverlay
-            ) {
-                Text("Start Monitoring Service")
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Gestión de Aplicaciones", style = MaterialTheme.typography.titleMedium)
+            
+            LazyColumn(modifier = Modifier.fillWeight(1f)) {
+                items(installedApps) { app ->
+                    AppRuleItem(app, rulesManager)
+                }
             }
         }
     }
 
     @Composable
-    fun PermissionButton(text: String, granted: Boolean, onClick: () -> Unit) {
-        Button(
-            onClick = onClick,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-            )
-        ) {
-            Text(if (granted) "$text: GRANTED" else "Grant $text")
-        }
+    fun StatusChip(label: String, active: Boolean) {
+        AssistChip(
+            onClick = { },
+            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+            leadingIcon = {
+                if (!active) Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            }
+        )
     }
+
+    @Composable
+    fun AppRuleItem(app: AppInfo, rulesManager: RulesManager) {
+        var isBlocked by remember { mutableStateOf(rulesManager.isAppBlocked(app.packageName)) }
+        
+        ListItem(
+            headlineContent = { Text(app.name) },
+            supportingContent = { Text(app.packageName, style = MaterialTheme.typography.labelSmall) },
+            leadingContent = {
+                app.icon?.let {
+                    Image(
+                        bitmap = it.toBitmap().asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            },
+            trailingContent = {
+                Switch(
+                    checked = isBlocked,
+                    onCheckedChange = {
+                        isBlocked = it
+                        val currentRules = rulesManager.getRules().toMutableList()
+                        currentRules.removeAll { r -> r.packageName == app.packageName }
+                        currentRules.add(Rule(app.packageName, it))
+                        rulesManager.saveRules(currentRules)
+                    }
+                )
+            }
+        )
+    }
+
+    data class AppInfo(val name: String, val packageName: String, val icon: Drawable?)
+
+    private fun getInstalledAppsWithNames(): List<AppInfo> {
+        val pm = packageManager
+        val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+        return apps
+            .filter { (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 } // Filter out system apps mostly
+            .map { AppInfo(it.loadLabel(pm).toString(), it.packageName, it.loadIcon(pm)) }
+            .sortedBy { it.name }
+    }
+
+    private fun Modifier.fillWeight(weight: Float): Modifier = this.then(Modifier.weight(weight))
 
     private fun hasUsageStatsPermission(context: Context): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
