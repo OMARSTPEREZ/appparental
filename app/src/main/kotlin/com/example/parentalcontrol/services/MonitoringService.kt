@@ -10,6 +10,7 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import com.example.parentalcontrol.models.Rule
+import com.example.parentalcontrol.utils.RulesManager
 import com.google.android.gms.location.*
 import java.util.*
 
@@ -19,8 +20,7 @@ class MonitoringService : Service() {
     private var timer: Timer? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
-
-    private val blockedApps = listOf("com.android.settings", "com.android.vending") // Mock rules
+    private lateinit var rulesManager: RulesManager
 
     override fun onCreate() {
         super.onCreate()
@@ -32,6 +32,7 @@ class MonitoringService : Service() {
             .build()
         startForeground(1, notification)
 
+        rulesManager = RulesManager(this)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         setupLocationTracking()
     }
@@ -81,7 +82,7 @@ class MonitoringService : Service() {
             val currentApp = sortedStats[0].packageName
             println("CURRENT APP: $currentApp")
             
-            if (blockedApps.contains(currentApp)) {
+            if (rulesManager.isAppBlocked(currentApp)) {
                 showBlockOverlay()
             }
         }

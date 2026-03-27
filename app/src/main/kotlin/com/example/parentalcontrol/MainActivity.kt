@@ -15,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.parentalcontrol.models.Rule
 import com.example.parentalcontrol.services.MonitoringService
+import com.example.parentalcontrol.utils.RulesManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,6 +56,22 @@ class MainActivity : ComponentActivity() {
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            val rulesManager = remember { RulesManager(this@MainActivity) }
+            var isSettingsBlocked by remember { mutableStateOf(rulesManager.isAppBlocked("com.android.settings")) }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Block Settings App")
+                Switch(
+                    checked = isSettingsBlocked,
+                    onCheckedChange = { 
+                        isSettingsBlocked = it
+                        rulesManager.saveRules(listOf(Rule("com.android.settings", it)))
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = {
