@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Parental Control</string>
+    <string name="app_name">Kiboo</string>
+    <string name="default_web_client_id">483861434770-287uo9k38v6u1mjgh5o92bpd9marb7cn.apps.googleusercontent.com</string>
 </resources>

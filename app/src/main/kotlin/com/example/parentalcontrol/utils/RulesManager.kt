@@ -25,4 +25,9 @@ class RulesManager(context: Context) {
         val rules = getRules()
         return rules.find { it.packageName == packageName }?.isBlocked ?: false
     }
+
+    fun isAppMonitored(packageName: String): Boolean {
+        val rules = getRules()
+        return rules.find { it.packageName == packageName }?.isMonitored ?: false
+    }
 }
