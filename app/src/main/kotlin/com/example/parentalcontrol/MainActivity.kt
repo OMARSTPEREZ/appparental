@@ -504,28 +504,93 @@ class MainActivity : ComponentActivity() {
 var showInviteDialog by remember { mutableStateOf(false) }
 
         if (showInviteDialog) {
+            val appLink = "https://kiboo.app/instalar"
             AlertDialog(
                 onDismissRequest = { showInviteDialog = false },
-                title = { Text("Añadir Dispositivo (Hijo)") },
-                text = { 
+                title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                        Text("Abre este enlace en el navegador del celular de tu hijo para instalar la App de control en modo invisible:", textAlign = TextAlign.Center)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Surface(color = Color(0xFFFFF3E0), shape = RoundedCornerShape(8.dp)) {
-                            Text(
-                                text = "https://kinderguard.com/app.apk", 
-                                modifier = Modifier.padding(16.dp),
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFE65100)
-                            )
+                        Text("📲", fontSize = 36.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Añadir Dispositivo Hijo", fontWeight = FontWeight.Black, fontSize = 17.sp, textAlign = TextAlign.Center)
+                        Text("Envía este enlace al celular del niño", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                    }
+                },
+                text = {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Link box
+                        Surface(
+                            color = Color(0xFFF5F5F5),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = appLink,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+
+                        // Botón Copiar
+                        Button(
+                            onClick = {
+                                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                val clip = android.content.ClipData.newPlainText("Kiboo Link", appLink)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(this@MainActivity, "✅ Enlace copiado al portapapeles", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("📋  Copiar enlace", fontWeight = FontWeight.Bold)
+                        }
+
+                        // Botón Abrir enlace
+                        OutlinedButton(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(appLink))
+                                startActivity(intent)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("🌐  Abrir en navegador", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+
+                        // Botón Compartir
+                        OutlinedButton(
+                            onClick = {
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, "Instala Kiboo en tu celular para que yo pueda ayudarte: $appLink")
+                                }
+                                startActivity(Intent.createChooser(shareIntent, "Compartir Kiboo"))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF43A047))
+                        ) {
+                            Text("📤  Compartir por WhatsApp / SMS", fontWeight = FontWeight.Bold, color = Color(0xFF43A047))
                         }
                     }
                 },
                 confirmButton = {
-                    Button(
-                        onClick = { showInviteDialog = false },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B5400))
-                    ) { Text("Entendido") }
+                    TextButton(onClick = { showInviteDialog = false }) {
+                        Text("Cerrar", color = Color.Gray)
+                    }
                 }
             )
         }
