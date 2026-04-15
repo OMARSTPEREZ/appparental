@@ -584,7 +584,7 @@ var showInviteDialog by remember { mutableStateOf(false) }
                             textAlign = TextAlign.Center
                         )
 
-                        HorizontalDivider(color = Color.LightGray, thickness = 1.dp)
+                        Divider(color = Color.LightGray, thickness = 1.dp)
                         Text("— o comparte el enlace —", fontSize = 11.sp, color = Color.Gray, textAlign = TextAlign.Center)
 
                         // Botón Copiar
@@ -732,7 +732,7 @@ var showInviteDialog by remember { mutableStateOf(false) }
                                         }
                                     )
 
-                                    HorizontalDivider(color = Color.LightGray, thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 12.dp))
+                                    Divider(color = Color.LightGray, thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 12.dp))
 
                                     // Cerrar Sesión (siempre al último)
                                     DropdownMenuItem(
