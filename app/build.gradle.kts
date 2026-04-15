@@ -79,4 +79,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("com.google.android.gms:play-services-auth:20.7.0")
+
+    // QR Code generation (ZXing)
+    implementation("com.google.zxing:core:3.5.3")
 }

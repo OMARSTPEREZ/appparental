@@ -66,6 +66,25 @@ import com.example.parentalcontrol.R
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import com.example.parentalcontrol.utils.AdminReceiver
+import android.graphics.Bitmap
+import android.graphics.Color as AndroidColor
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+
+fun generateQrBitmap(content: String, size: Int = 512): Bitmap {
+    val hints = mapOf(EncodeHintType.MARGIN to 1)
+    val bits = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
+    val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+    for (x in 0 until size) {
+        for (y in 0 until size) {
+            bmp.setPixel(x, y, if (bits[x, y]) AndroidColor.BLACK else AndroidColor.WHITE)
+        }
+    }
+    return bmp
+}
 
 class MainActivity : ComponentActivity() {
     private lateinit var auth: FirebaseAuth
@@ -541,6 +560,32 @@ var showInviteDialog by remember { mutableStateOf(false) }
                                 )
                             }
                         }
+
+                        // QR Code
+                        val qrBitmap = remember { generateQrBitmap(appLink) }
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White,
+                            shadowElevation = 4.dp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            Image(
+                                bitmap = qrBitmap.asImageBitmap(),
+                                contentDescription = "QR Code de instalación",
+                                modifier = Modifier
+                                    .size(200.dp)
+                                    .padding(12.dp)
+                            )
+                        }
+                        Text(
+                            "Escanea con la cámara del celular del niño",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+
+                        HorizontalDivider(color = Color.LightGray, thickness = 1.dp)
+                        Text("— o comparte el enlace —", fontSize = 11.sp, color = Color.Gray, textAlign = TextAlign.Center)
 
                         // Botón Copiar
                         Button(
