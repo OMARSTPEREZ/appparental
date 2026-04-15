@@ -694,27 +694,57 @@ var showInviteDialog by remember { mutableStateOf(false) }
                                 DropdownMenu(
                                     expanded = menuExpanded,
                                     onDismissRequest = { menuExpanded = false },
-                                    modifier = Modifier.background(Color.White)
+                                    modifier = Modifier
+                                        .background(Color.White)
+                                        .width(220.dp)
                                 ) {
+                                    // Configuración (con modos de color adentro)
                                     DropdownMenuItem(
-                                        text = { Text("Cerrar Sesión", color = Color.Red) },
-                                        onClick = { 
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                Text("⚙️", fontSize = 18.sp)
+                                                Column {
+                                                    Text("Configuración", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                    Text("Temas y ajustes", fontSize = 11.sp, color = Color.Gray)
+                                                }
+                                            }
+                                        },
+                                        onClick = {
                                             menuExpanded = false
-                                            onLogout() 
+                                            showThemeSettingsDialog = true
                                         }
                                     )
+
+                                    // Grupo Familiar
                                     DropdownMenuItem(
-                                        text = { Text("Agregar a Grupo Familiar") },
-                                        onClick = { 
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                Text("👨‍👩‍👧‍👦", fontSize = 18.sp)
+                                                Column {
+                                                    Text("Grupo Familiar", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                    Text("Gestionar miembros", fontSize = 11.sp, color = Color.Gray)
+                                                }
+                                            }
+                                        },
+                                        onClick = {
                                             menuExpanded = false
-                                            Toast.makeText(this@MainActivity, "Próximamente: Enlace familiar", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(this@MainActivity, "Próximamente: Grupo Familiar", Toast.LENGTH_SHORT).show()
                                         }
                                     )
+
+                                    HorizontalDivider(color = Color.LightGray, thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 12.dp))
+
+                                    // Cerrar Sesión (siempre al último)
                                     DropdownMenuItem(
-                                        text = { Text("Configuración Visual ⚙️") },
-                                        onClick = { 
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                Text("🚪", fontSize = 18.sp)
+                                                Text("Cerrar Sesión", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFFD32F2F))
+                                            }
+                                        },
+                                        onClick = {
                                             menuExpanded = false
-                                            showThemeSettingsDialog = true 
+                                            onLogout()
                                         }
                                     )
                                 }
