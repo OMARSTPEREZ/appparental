@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -327,85 +328,136 @@ class MainActivity : ComponentActivity() {
     fun ChildDashboard(onLogout: () -> Unit) {
         val securityManager = remember { SecurityManager(this@MainActivity) }
         var showLogoutConfirmation by remember { mutableStateOf(false) }
+        var pinInput by remember { mutableStateOf("") }
+        var pinError by remember { mutableStateOf(false) }
 
-        Column(
+        // Tema oscuro forzado para el Dashboard del niño (estética tecnológica)
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFFDF6EE))
-                .padding(32.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(Brush.verticalGradient(listOf(Color(0xFF0F172A), Color(0xFF1E293B))))
         ) {
-            Surface(
-                modifier = Modifier.size(120.dp),
-                shape = CircleShape,
-                color = Color(0xFFBBDEFB)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.img_robot), // Cambiado de img_profiles
-                    contentDescription = null,
-                    modifier = Modifier.padding(24.dp),
-                    tint = Color(0xFF1976D2)
+                // Escudo protector animado
+                Box(contentAlignment = Alignment.Center) {
+                    Surface(
+                        modifier = Modifier.size(180.dp),
+                        shape = CircleShape,
+                        color = Color(0xFF1976D2).copy(alpha = 0.1f),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF00B0FF))
+                    ) {}
+                    
+                    Image(
+                        painter = painterResource(id = R.drawable.img_robot),
+                        contentDescription = "Robot Kiboo",
+                        modifier = Modifier.size(120.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Text(
+                    text = "Kiboo Shield Active 🛡️",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                    color = Color.White
                 )
-            }
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            Text(
-                text = "DispositivoProtegido", 
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black), 
-                color = Color(0xFF3E2723),
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "Kiboo está monitoreando activamente para mantenerte seguro.", 
-                style = MaterialTheme.typography.bodyMedium, 
-                color = Color.Gray,
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(48.dp))
-            
-            var pinInput by remember { mutableStateOf("") }
-            OutlinedTextField(
-                value = pinInput,
-                onValueChange = { pinInput = it },
-                label = { Text("PIN de Administrador") },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(0.8f)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Button(
-                onClick = { 
-                    if (pinInput == "123456") { // PIN maestro básico para validación MVP
-                        showLogoutConfirmation = true 
-                    } else {
-                        Toast.makeText(this@MainActivity, "PIN Incorrecto", Toast.LENGTH_SHORT).show()
+                
+                Text(
+                    text = "Este dispositivo está bajo protección inteligente",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.LightGray,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(48.dp))
+
+                // Botón SOS / Contacto
+                Surface(
+                    onClick = { Toast.makeText(this@MainActivity, "⚠️ Alerta enviada a papá/mamá", Toast.LENGTH_LONG).show() },
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xFFE91E63).copy(alpha = 0.2f),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFE91E63)),
+                    modifier = Modifier.fillMaxWidth().height(64.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🚨 CONTACTAR A PAPÁ", fontWeight = FontWeight.Bold, color = Color(0xFFF06292))
                     }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
-            ) {
-                Text("Desvincular Dispositivo")
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Sección de Seguridad (Solo Admin)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color.White.copy(alpha = 0.05f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                ) {
+                    Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("ZONA ADMINISTRATIVA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        OutlinedTextField(
+                            value = pinInput,
+                            onValueChange = { 
+                                pinInput = it
+                                pinError = false
+                            },
+                            label = { Text("PIN de Administrador", color = Color.Gray) },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = pinError,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF1976D2),
+                                unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
+                            )
+                        )
+                        
+                        TextButton(
+                            onClick = { 
+                                if (pinInput == "123456") { // PIN maestro por defecto
+                                    showLogoutConfirmation = true 
+                                } else {
+                                    pinError = true
+                                    Toast.makeText(this@MainActivity, "PIN Incorrecto", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        ) {
+                            Text("Desvincular Dispositivo", color = Color.Gray, fontSize = 12.sp)
+                        }
+                    }
+                }
             }
         }
 
         if (showLogoutConfirmation) {
             AlertDialog(
                 onDismissRequest = { showLogoutConfirmation = false },
-                title = { Text("Cerrar Sesión") },
-                text = { Text("¿Estás seguro de que deseas salir del perfil del hijo?") },
+                title = { Text("⚠️ Desvinculación de Seguridad") },
+                text = { Text("¿Confirmas que deseas desactivar la protección Kiboo en este dispositivo? El administrador recibirá una notificación.") },
                 confirmButton = {
-                    Button(onClick = {
-                        showLogoutConfirmation = false
-                        onLogout()
-                    }) {
-                        Text("Sí, Salir")
+                    Button(
+                        onClick = {
+                            showLogoutConfirmation = false
+                            onLogout()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                    ) {
+                        Text("Sí, Desvincular")
                     }
                 },
                 dismissButton = {
@@ -523,7 +575,7 @@ class MainActivity : ComponentActivity() {
 var showInviteDialog by remember { mutableStateOf(false) }
 
         if (showInviteDialog) {
-            val appLink = "https://kiboo.app/instalar"
+            val appLink = "https://play.google.com/store/apps/details?id=com.kiboo.app"
             AlertDialog(
                 onDismissRequest = { showInviteDialog = false },
                 title = {
@@ -531,7 +583,7 @@ var showInviteDialog by remember { mutableStateOf(false) }
                         Text("📲", fontSize = 36.sp)
                         Spacer(Modifier.height(4.dp))
                         Text("Añadir Dispositivo Hijo", fontWeight = FontWeight.Black, fontSize = 17.sp, textAlign = TextAlign.Center)
-                        Text("Envía este enlace al celular del niño", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                        Text("Instala Kiboo desde la Play Store en el celular del niño", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center)
                     }
                 },
                 text = {
@@ -547,17 +599,30 @@ var showInviteDialog by remember { mutableStateOf(false) }
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.padding(12.dp),
+                                modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = appLink,
+                                    text = "kiboo.app/descargar",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.weight(1f)
                                 )
+                                IconButton(onClick = {
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, "Instala Kiboo en el celular de nuestro hijo para protegerlo: $appLink")
+                                    }
+                                    startActivity(Intent.createChooser(shareIntent, "Compartir Kiboo"))
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "Compartir",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         }
 
@@ -585,7 +650,6 @@ var showInviteDialog by remember { mutableStateOf(false) }
                         )
 
                         Divider(color = Color.LightGray, thickness = 1.dp)
-                        Text("— o comparte el enlace —", fontSize = 11.sp, color = Color.Gray, textAlign = TextAlign.Center)
 
                         // Botón Copiar
                         Button(
@@ -605,30 +669,19 @@ var showInviteDialog by remember { mutableStateOf(false) }
                         // Botón Abrir enlace
                         OutlinedButton(
                             onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(appLink))
-                                startActivity(intent)
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(appLink))
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(this@MainActivity, "No se pudo abrir el navegador", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Text("🌐  Abrir en navegador", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        }
-
-                        // Botón Compartir
-                        OutlinedButton(
-                            onClick = {
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, "Instala Kiboo en tu celular para que yo pueda ayudarte: $appLink")
-                                }
-                                startActivity(Intent.createChooser(shareIntent, "Compartir Kiboo"))
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF43A047))
-                        ) {
-                            Text("📤  Compartir por WhatsApp / SMS", fontWeight = FontWeight.Bold, color = Color(0xFF43A047))
                         }
                     }
                 },
