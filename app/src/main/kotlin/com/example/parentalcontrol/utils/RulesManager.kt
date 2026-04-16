@@ -23,7 +23,13 @@ class RulesManager(context: Context) {
 
     fun isAppBlocked(packageName: String): Boolean {
         val rules = getRules()
-        return rules.find { it.packageName == packageName }?.isBlocked ?: false
+        val rule = rules.find { it.packageName == packageName } ?: return false
+        return rule.isBlocked && !rule.isAlwaysAllowed
+    }
+
+    fun isAppAlwaysAllowed(packageName: String): Boolean {
+        val rules = getRules()
+        return rules.find { it.packageName == packageName }?.isAlwaysAllowed ?: false
     }
 
     fun isAppMonitored(packageName: String): Boolean {

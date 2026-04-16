@@ -11,31 +11,86 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
+import android.os.PowerManager
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import android.graphics.ImageDecoder
+import android.provider.MediaStore
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.QuestionAnswer
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Update
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Directions
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.ui.platform.LocalContext
+import android.media.AudioTrack
+import android.media.AudioFormat
+import android.media.AudioManager
+import java.io.File
+import java.io.FileOutputStream
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.VideoLibrary
 
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import android.util.Base64
 import android.graphics.BitmapFactory
 import com.example.parentalcontrol.models.Rule
@@ -52,26 +107,23 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.ui.graphics.Color
-import com.example.parentalcontrol.utils.SecurityManager
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import com.example.parentalcontrol.R
-import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
-import com.example.parentalcontrol.utils.AdminReceiver
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.background
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.example.parentalcontrol.utils.SecurityManager
+import com.example.parentalcontrol.R
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import com.example.parentalcontrol.utils.AdminReceiver
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 
@@ -130,16 +182,244 @@ class MainActivity : ComponentActivity() {
             var showRegisterScreen by remember { mutableStateOf(false) }
             var showPoliciesScreen by remember { mutableStateOf(false) }
             var nextStepAfterPolicies by remember { mutableStateOf("MANUAL") } // "MANUAL" o "GOOGLE"
+            var showRoleSelectionForChild by remember { mutableStateOf(false) }
+
+            // Auto-asignación segura de rol Admin tras inicio de sesión exitoso
+            LaunchedEffect(currentUser, showRoleSelectionForChild) {
+                if (currentUser != null && userRole == SessionManager.ROLE_NONE && !showRoleSelectionForChild) {
+                    sessionManager.saveUserRole(SessionManager.ROLE_ADMIN)
+                    userRole = SessionManager.ROLE_ADMIN
+                }
+            }
             
             var globalAppTheme by remember { mutableStateOf(sessionManager.getAppTheme()) }
+            val firebaseSyncManager = remember(currentUser) { FirebaseSyncManager(currentUser?.uid ?: "anonymous") }
+            
+            // Perfil del niño (Estados elevados)
+            var childName by remember { mutableStateOf("") }
+            var childAvatar by remember { mutableStateOf("🤖") }
+            var childBirthDate by remember { mutableStateOf(0L) }
+            var childAge by remember { mutableStateOf(0) }
+            var linkedParentUid by remember { mutableStateOf<String?>(null) }
+            
+            // Gestor de imagen de galería
+            val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: android.net.Uri? ->
+                uri?.let {
+                    try {
+                        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(contentResolver, it))
+                        } else {
+                            android.provider.MediaStore.Images.Media.getBitmap(contentResolver, it)
+                        }
+                        val stream = java.io.ByteArrayOutputStream()
+                        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 50, stream)
+                        childAvatar = android.util.Base64.encodeToString(stream.toByteArray(), android.util.Base64.DEFAULT)
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Error al procesar imagen", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
 
-            ParentalControlTheme(appTheme = globalAppTheme) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                        var showDisclosures by remember { mutableStateOf(false) }
-                        var tempSelectedRole by remember { mutableStateOf<String?>(null) }
+            Box(modifier = Modifier.fillMaxSize()) {
+                ParentalControlTheme(appTheme = globalAppTheme) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                            var showDisclosures by remember { mutableStateOf(false) }
+                            var showTutorConsent by remember { mutableStateOf(false) }
+                            var showChildProfileSetup by remember { mutableStateOf(false) }
+                            var tempSelectedRole by remember { mutableStateOf<String?>(null) }
+
+                            // DIÁLOGO DE PERFIL DEL NIÑO (NUEVO)
+                        if (showChildProfileSetup) {
+                            AlertDialog(
+                                onDismissRequest = { },
+                                title = { 
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                        Text("🎨", fontSize = 40.sp)
+                                        Spacer(Modifier.height(8.dp))
+                                        Text("Configura el Perfil", fontWeight = FontWeight.Black, fontSize = 20.sp) 
+                                    }
+                                },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        // Avatar Selection
+                                        Box(contentAlignment = Alignment.BottomEnd) {
+                                            Surface(
+                                                modifier = Modifier.size(100.dp),
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primaryContainer
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    if (childAvatar.length < 5) { // Es un emoji
+                                                        Text(childAvatar, fontSize = 50.sp)
+                                                    } else { // Es Base64
+                                                        val bytes = android.util.Base64.decode(childAvatar, android.util.Base64.DEFAULT)
+                                                        val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                                        Image(
+                                                            bitmap = bitmap.asImageBitmap(), 
+                                                            contentDescription = null, 
+                                                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                                            contentScale = ContentScale.Crop
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            IconButton(
+                                                onClick = { galleryLauncher.launch("image/*") },
+                                                modifier = Modifier.background(MaterialTheme.colorScheme.primary, CircleShape).size(32.dp)
+                                            ) {
+                                                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            listOf("🤖", "🐱", "🐶", "🦊", "🦁").forEach { emoji ->
+                                                Surface(
+                                                    onClick = { childAvatar = emoji },
+                                                    shape = CircleShape,
+                                                    color = if (childAvatar == emoji) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                                                    border = if (childAvatar == emoji) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                                                ) {
+                                                    Text(emoji, fontSize = 24.sp, modifier = Modifier.padding(8.dp))
+                                                }
+                                            }
+                                        }
+
+                                        OutlinedTextField(
+                                            value = childName,
+                                            onValueChange = { childName = it },
+                                            label = { Text("Nombre del Niño(a)") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+
+                                        Button(
+                                            onClick = {
+                                                val calendar = java.util.Calendar.getInstance()
+                                                val datePickerDialog = android.app.DatePickerDialog(
+                                                    this@MainActivity,
+                                                    { _, year, month, day ->
+                                                        val birth = java.util.Calendar.getInstance()
+                                                        birth.set(year, month, day)
+                                                        childBirthDate = birth.timeInMillis
+                                                        val today = java.util.Calendar.getInstance()
+                                                        var age = today.get(java.util.Calendar.YEAR) - birth.get(java.util.Calendar.YEAR)
+                                                        if (today.get(java.util.Calendar.DAY_OF_YEAR) < birth.get(java.util.Calendar.DAY_OF_YEAR)) age--
+                                                        childAge = age
+                                                    },
+                                                    calendar.get(java.util.Calendar.YEAR) - 10,
+                                                    calendar.get(java.util.Calendar.MONTH),
+                                                    calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                                                )
+                                                datePickerDialog.show()
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray.copy(alpha = 0.1f)),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text(
+                                                if (childBirthDate == 0L) "📅 Seleccionar Fecha de Nacimiento" 
+                                                else "🎂 Edad: $childAge años",
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            showChildProfileSetup = false
+                                            showTutorConsent = true
+                                            firebaseSyncManager.syncChildProfile(childName, childAvatar, childBirthDate, childAge)
+                                            
+                                            // REGISTRO EN LISTA DEL PADRE
+                                            linkedParentUid?.let { parentUid ->
+                                                val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                                                firebaseSyncManager.registerDeviceToParent(
+                                                    parentUid = parentUid,
+                                                    childId = androidId,
+                                                    name = childName,
+                                                    avatar = childAvatar
+                                                )
+                                            }
+                                        },
+                                        enabled = childName.isNotBlank() && childBirthDate != 0L,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("SIGUIENTE")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showChildProfileSetup = false }) { Text("Cancelar") }
+                                }
+                            )
+                        }
                         
-                                                if (showDisclosures) {
+                        // DIÁLOGO DE CONSENTIMIENTO DEL TUTOR (NUEVO)
+                        if (showTutorConsent) {
+                            var acceptedTerms by remember { mutableStateOf(false) }
+                            var acceptedLaws by remember { mutableStateOf(false) }
+
+                            AlertDialog(
+                                onDismissRequest = { },
+                                title = { 
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                        Text("🛡️", fontSize = 40.sp)
+                                        Spacer(Modifier.height(8.dp))
+                                        Text("Conocimiento del Tutor", fontWeight = FontWeight.Black, fontSize = 20.sp) 
+                                    }
+                                },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        Text(
+                                            "Confirmo que soy el tutor o representante legal y he instalado esta aplicación voluntariamente para mi hijo(a). Autorizo el uso de Kiboo para la protección y supervisión de este dispositivo.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        
+                                        Divider(color = Color.LightGray.copy(alpha = 0.5f))
+
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Checkbox(checked = acceptedTerms, onCheckedChange = { acceptedTerms = it })
+                                            Text("He leído y acepto las políticas y términos.", fontSize = 12.sp, modifier = Modifier.clickable { acceptedTerms = !acceptedTerms })
+                                        }
+
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Checkbox(checked = acceptedLaws, onCheckedChange = { acceptedLaws = it })
+                                            Text("Acepto cumplir con todas las leyes y normativas de la aplicación.", fontSize = 12.sp, modifier = Modifier.clickable { acceptedLaws = !acceptedLaws })
+                                        }
+                                        
+                                        Text(
+                                            "Si tocas el botón aceptar confirmas que eres el tutor legal del usuario de este dispositivo.",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.Gray,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            showTutorConsent = false
+                                            showDisclosures = true
+                                        },
+                                        enabled = acceptedTerms && acceptedLaws,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("ACEPTAR")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showTutorConsent = false }) { Text("Cancelar", color = Color.Gray) }
+                                },
+                                containerColor = Color.White,
+                                shape = RoundedCornerShape(28.dp)
+                            )
+                        }
+
+                        if (showDisclosures) {
                             AlertDialog(
                                 onDismissRequest = { },
                                 title = { Text("Privacidad y Permisos", fontWeight = FontWeight.Bold) },
@@ -175,7 +455,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        if (currentUser == null) {
+                        if (currentUser == null && !showRoleSelectionForChild) {
                             if (showPoliciesScreen) {
                                 PoliciesScreen(
                                     onAccept = {
@@ -212,27 +492,62 @@ class MainActivity : ComponentActivity() {
                                     onGoogleSignInClick = { 
                                         nextStepAfterPolicies = "GOOGLE"
                                         showPoliciesScreen = true
+                                    },
+                                    onChildLoginClick = {
+                                        // Entrada Directa para el Hijo
+                                        userRole = SessionManager.ROLE_NONE
+                                        showRoleSelectionForChild = true
                                     }
                                 )
                             }
                         } else if (userRole == SessionManager.ROLE_NONE) {
-                            RoleSelectionScreen(onRoleSelected = { role, theme ->
-                                if (role == SessionManager.ROLE_CHILD) {
-                                    tempSelectedRole = role
-                                    if (theme != null) {
-                                        globalAppTheme = theme
-                                        sessionManager.setAppTheme(theme)
+                            if (showRoleSelectionForChild || userRole == SessionManager.ROLE_NONE) {
+                                RoleSelectionScreen(
+                                    forcedRole = if (showRoleSelectionForChild) "CHILD" else null,
+                                    onBack = { 
+                                        showRoleSelectionForChild = false 
+                                        // Si el usuario no está logueado, regresará al Onboarding automáticamente
+                                    },
+                                    onRoleSelected = { role, theme ->
+                                    if (role.startsWith("CHILD_CODE:")) {
+                                        val code = role.substringAfter(":")
+                                        isLoading = true
+                                        firebaseSyncManager.linkWithCode(code) { parentUid ->
+                                            isLoading = false
+                                            if (parentUid != null) {
+                                                if (theme != null) {
+                                                    globalAppTheme = theme
+                                                    sessionManager.setAppTheme(theme)
+                                                }
+                                                // Redireccionar al wizard de perfil en lugar de entrar de golpe
+                                                linkedParentUid = parentUid
+                                                tempSelectedRole = SessionManager.ROLE_CHILD
+                                                showChildProfileSetup = true
+                                            } else {
+                                                Toast.makeText(this@MainActivity, "Código inválido o expirado", Toast.LENGTH_LONG).show()
+                                            }
+                                        }
+                                    } else if (role == SessionManager.ROLE_CHILD) {
+                                        // Este camino es si el usuario elige manual (ya no es común con el botón directo)
+                                        tempSelectedRole = role
+                                        if (theme != null) {
+                                            globalAppTheme = theme
+                                            sessionManager.setAppTheme(theme)
+                                        }
+                                        showChildProfileSetup = true 
+                                    } else {
+                                        // Este camino es si entra como Padre manual
+                                        sessionManager.saveUserRole(role)
+                                        userRole = role
+                                        showRoleSelectionForChild = false
                                     }
-                                    showDisclosures = true
-                                } else {
-                                    sessionManager.saveUserRole(role)
-                                    userRole = role
-                                }
-                            })
+                                })
+                            }
                         } else {
                             if (userRole == SessionManager.ROLE_ADMIN) {
                                 MainScreen(
                                     appTheme = globalAppTheme,
+                                    syncManager = firebaseSyncManager,
                                     onThemeChange = { newTheme -> 
                                         globalAppTheme = newTheme
                                         sessionManager.setAppTheme(newTheme)
@@ -246,12 +561,16 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             } else {
-                                ChildDashboard(onLogout = {
-                                    auth.signOut()
-                                    sessionManager.clearSession()
-                                    currentUser = null
-                                    userRole = SessionManager.ROLE_NONE
-                                })
+                                ChildDashboard(
+                                    onLogout = {
+                                        auth.signOut()
+                                        sessionManager.clearSession()
+                                        currentUser = null
+                                        userRole = SessionManager.ROLE_NONE
+                                    },
+                                    syncManager = firebaseSyncManager,
+                                    appTheme = globalAppTheme
+                                )
                             }
                         }
                     }
@@ -279,9 +598,13 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                
+                // ASISTENTE DE AYUDA GLOBAL (Flotante)
+                HelpAssistantFloatingButton(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
             }
         }
     }
+}
 
     private fun startMonitoringService() {
         val intent = Intent(this, MonitoringService::class.java)
@@ -325,18 +648,207 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun ChildDashboard(onLogout: () -> Unit) {
+    fun ChildDashboard(onLogout: () -> Unit, syncManager: FirebaseSyncManager, appTheme: String) {
         val securityManager = remember { SecurityManager(this@MainActivity) }
         var showLogoutConfirmation by remember { mutableStateOf(false) }
         var pinInput by remember { mutableStateOf("") }
         var pinError by remember { mutableStateOf(false) }
 
-        // Tema oscuro forzado para el Dashboard del niño (estética tecnológica)
+        // Datos del perfil sincronizados
+        var childName by remember { mutableStateOf("Kiboo") }
+        var childAvatar by remember { mutableStateOf("🤖") }
+        var childAge by remember { mutableStateOf(0) }
+
+        // Estados de Permisos
+        var hasUsageStats by remember { mutableStateOf(hasUsageStatsPermission(this)) }
+        var hasOverlay by remember { mutableStateOf(Settings.canDrawOverlays(this)) }
+        var hasNotification by remember { mutableStateOf(isNotificationListenerEnabled(this)) }
+        
+        // Device Admin State
+        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val adminComponent = ComponentName(this, AdminReceiver::class.java)
+        var isAdminActive by remember { mutableStateOf(dpm.isAdminActive(adminComponent)) }
+
+        // Battery Optimization State
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        var isIgnoringBattery by remember { mutableStateOf(powerManager.isIgnoringBatteryOptimizations(packageName)) }
+
+        val allPermissionsOk = hasUsageStats && hasOverlay && hasNotification && isAdminActive && isIgnoringBattery
+        
+        var showPermissionsDialog by remember { mutableStateOf(false) }
+        var showNoticeDialog by remember { mutableStateOf(!allPermissionsOk) }
+        var showAdvancedDialog by remember { mutableStateOf(false) }
+        var showLevel3Dialog by remember { mutableStateOf(false) }
+        var isStudyModeActive by remember { mutableStateOf(false) }
+        var selectedGuidePermission by remember { mutableStateOf<String?>(null) }
+
+        // Datos del Tutor
+        val tutorEmail = auth.currentUser?.email ?: "Administrador"
+
+
+        // Lanzador de permisos avanzados
+        val advancedPermissionsLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { results ->
+            if (results.all { it.value }) {
+                Toast.makeText(this@MainActivity, "🛡️ Protección Total Activada", Toast.LENGTH_SHORT).show()
+            }
+            showAdvancedDialog = false
+            showLevel3Dialog = true // Sigiente nivel: Persistencia
+        }
+
+        // Diálogo de Aviso Inicial (Si faltan permisos)
+        if (showNoticeDialog && !allPermissionsOk) {
+            PermissionNoticeDialog(
+                onDismiss = { 
+                    showNoticeDialog = false
+                    showAdvancedDialog = true 
+                },
+                onGrantClicked = {
+                    showNoticeDialog = false
+                    showPermissionsDialog = true
+                },
+                missingNotifications = !hasNotification,
+                missingLocation = true
+            )
+        }
+
+        // Diálogo de Protección Total (Nivel 2)
+        if (showAdvancedDialog) {
+            AdvancedProtectionDialog(
+                onDismiss = { 
+                    showAdvancedDialog = false
+                    showLevel3Dialog = true 
+                },
+                onEnableClicked = {
+                    val permissions = mutableListOf(
+                        android.Manifest.permission.READ_CONTACTS,
+                        android.Manifest.permission.READ_SMS
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        permissions.add(android.Manifest.permission.READ_MEDIA_IMAGES)
+                    } else {
+                        permissions.add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                    }
+                    advancedPermissionsLauncher.launch(permissions.toTypedArray())
+                }
+            )
+        }
+
+        // Diálogo Final: Persistencia (Nivel 3)
+        if (showLevel3Dialog) {
+            Level3ProtectionDialog(
+                isAdminActive = isAdminActive,
+                isIgnoringBattery = isIgnoringBattery,
+                onDismiss = { showLevel3Dialog = false },
+                onToggleAdmin = {
+                    val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                        putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+                        putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Kiboo Shield necesita ser administrador para evitar que el niño desinstale la protección.")
+                    }
+                    startActivity(intent)
+                },
+                onToggleBatteryOpt = {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                },
+                onOpenAutoStart = {
+                    val intent = Intent().apply {
+                        component = ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                    }
+                    try { startActivity(intent) } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity, "Busca 'Auto-inicio' en Ajustes", Toast.LENGTH_LONG).show()
+                    }
+                },
+                onOpenBatterySaver = {
+                    startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
+                },
+                onDone = { showLevel3Dialog = false }
+            )
+        }
+
+        // Diálogo de Guía Visual (Al pulsar en el gestor)
+        if (selectedGuidePermission != null) {
+            PermissionGuideDialog(
+                permissionKey = selectedGuidePermission!!,
+                onDismiss = { selectedGuidePermission = null },
+                onConfirmed = {
+                    val p = selectedGuidePermission!!
+                    selectedGuidePermission = null
+                    // Ejecutar el intent correspondiente
+                    when(p) {
+                        "USAGE" -> startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        "OVERLAY" -> startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        "NOTIFICATION" -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        "ACCESSIBILITY" -> startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }
+                }
+            )
+        }
+
+        // Verificación periódica al volver a la app
+        val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                    hasUsageStats = hasUsageStatsPermission(this@MainActivity)
+                    hasOverlay = Settings.canDrawOverlays(this@MainActivity)
+                    hasNotification = isNotificationListenerEnabled(this@MainActivity)
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+
+        // Sincronización remota
+        LaunchedEffect(Unit) {
+            syncManager.listenForAdminPin { newPin ->
+                securityManager.savePin(newPin)
+                Toast.makeText(this@MainActivity, "🔒 PIN de Seguridad actualizado", Toast.LENGTH_SHORT).show()
+            }
+            syncManager.listenForChildProfile { name, avatar, age ->
+                if (name.isNotBlank()) childName = name
+                childAvatar = avatar
+                childAge = age
+            }
+        }
+
+        // Colores Dinámicos según Tema
+        val dashboardGradient = when(appTheme) {
+            SessionManager.THEME_GIRL -> listOf(Color(0xFF4A148C), Color(0xFF880E4F)) // Púrpura a Magenta
+            SessionManager.THEME_DARK -> listOf(Color(0xFF121212), Color(0xFF263238)) // Negro a Gris
+            else -> listOf(Color(0xFF0F172A), Color(0xFF1E293B)) // Azul Tecnológico (Boy)
+        }
+        val accentColor = when(appTheme) {
+            SessionManager.THEME_GIRL -> Color(0xFFFF4081)
+            SessionManager.THEME_DARK -> Color(0xFFFFB142)
+            else -> Color(0xFF00B0FF)
+        }
+
+        var showAdminAccess by remember { mutableStateOf(false) }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFF0F172A), Color(0xFF1E293B))))
+                .background(Brush.verticalGradient(dashboardGradient))
         ) {
+            // Botón de ayuda/configuración (ADMIN OCULTO)
+            IconButton(
+                onClick = { showAdminAccess = !showAdminAccess },
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(16.dp)
+                    .align(Alignment.TopEnd)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info, 
+                    contentDescription = "Ayuda", 
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -344,45 +856,126 @@ class MainActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Escudo protector animado
+                // Escudo protector animado con AVATAR PERSONALIZADO
                 Box(contentAlignment = Alignment.Center) {
                     Surface(
                         modifier = Modifier.size(180.dp),
                         shape = CircleShape,
-                        color = Color(0xFF1976D2).copy(alpha = 0.1f),
-                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF00B0FF))
+                        color = accentColor.copy(alpha = 0.1f),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, accentColor)
                     ) {}
                     
-                    Image(
-                        painter = painterResource(id = R.drawable.img_robot),
-                        contentDescription = "Robot Kiboo",
-                        modifier = Modifier.size(120.dp)
-                    )
+                    if (childAvatar == "🤖") {
+                        Image(
+                            painter = painterResource(id = R.drawable.img_robot),
+                            contentDescription = "Robot Kiboo",
+                            modifier = Modifier.size(120.dp).clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else if (childAvatar.length < 5) {
+                        Text(childAvatar, fontSize = 80.sp)
+                    } else {
+                        val bytes = android.util.Base64.decode(childAvatar, android.util.Base64.DEFAULT)
+                        val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        Image(
+                            bitmap = bitmap.asImageBitmap(), 
+                            contentDescription = "Avatar",
+                            modifier = Modifier.size(120.dp).clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Text(
-                    text = "Kiboo Shield Active 🛡️",
+                    text = "¡Hola, $childName! 👋",
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
                     color = Color.White
                 )
                 
                 Text(
-                    text = "Este dispositivo está bajo protección inteligente",
+                    text = if (childAge > 0) "Modo Protección On ($childAge años) 🛡️" else "Kiboo Shield Active 🛡️",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.LightGray,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Botón SOS / Contacto
+                // Tarjeta de Estado de Protección
                 Surface(
-                    onClick = { Toast.makeText(this@MainActivity, "⚠️ Alerta enviada a papá/mamá", Toast.LENGTH_LONG).show() },
+                    onClick = { showPermissionsDialog = true },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (allPermissionsOk) Color(0xFF4CAF50).copy(alpha = 0.1f) else Color(0xFFFF9800).copy(alpha = 0.1f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, 
+                        if (allPermissionsOk) Color(0xFF4CAF50).copy(alpha = 0.3f) else Color(0xFFFF9800).copy(alpha = 0.3f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = if (allPermissionsOk) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                if (allPermissionsOk) Icons.Default.Lock else Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(16.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (allPermissionsOk) "Protección Blindada Active" else "Protección Parcial",
+                                fontWeight = FontWeight.Bold,
+                                color = if (allPermissionsOk) Color(0xFF81C784) else Color(0xFFFFB74D)
+                            )
+                            Text(
+                                if (allPermissionsOk) "Kiboo está vigilando este dispositivo." else "Faltan permisos críticos para el escudo.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.LightGray
+                            )
+                        }
+                        
+                        if (!allPermissionsOk) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                        }
+                    }
+                }
+
+                if (showPermissionsDialog) {
+                    PermissionsManagerDialog(
+                        context = this@MainActivity,
+                        onDismiss = { showPermissionsDialog = false },
+                        hasUsageStats = hasUsageStats,
+                        hasOverlay = hasOverlay,
+                        hasCamera = true, 
+                        hasLocation = true,
+                        hasNotification = hasNotification,
+                        onTriggerGuide = { permissionKey ->
+                            selectedGuidePermission = permissionKey
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Surface(
+                    onClick = { 
+                        Toast.makeText(this@MainActivity, "⚠️ Alerta SOS enviada", Toast.LENGTH_LONG).show() 
+                    },
                     shape = RoundedCornerShape(24.dp),
-                    color = Color(0xFFE91E63).copy(alpha = 0.2f),
-                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFE91E63)),
+                    color = accentColor.copy(alpha = 0.2f),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, accentColor),
                     modifier = Modifier.fillMaxWidth().height(64.dp)
                 ) {
                     Row(
@@ -390,56 +983,58 @@ class MainActivity : ComponentActivity() {
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("🚨 CONTACTAR A PAPÁ", fontWeight = FontWeight.Bold, color = Color(0xFFF06292))
+                        Text("🚨 CONTACTAR A PAPÁ", fontWeight = FontWeight.Black, color = accentColor)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Sección de Seguridad (Solo Admin)
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color.White.copy(alpha = 0.05f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
-                ) {
-                    Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("ZONA ADMINISTRATIVA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        OutlinedTextField(
-                            value = pinInput,
-                            onValueChange = { 
-                                pinInput = it
-                                pinError = false
-                            },
-                            label = { Text("PIN de Administrador", color = Color.Gray) },
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            isError = pinError,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFF1976D2),
-                                unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
-                            )
-                        )
-                        
-                        TextButton(
-                            onClick = { 
-                                if (pinInput == "123456") { // PIN maestro por defecto
-                                    showLogoutConfirmation = true 
-                                } else {
-                                    pinError = true
-                                    Toast.makeText(this@MainActivity, "PIN Incorrecto", Toast.LENGTH_SHORT).show()
+                // Diálogo de Desvinculación (ADMIN)
+                if (showAdminAccess) {
+                    AlertDialog(
+                        onDismissRequest = { showAdminAccess = false },
+                        title = { Text("⚠️ Zona Administrativa", fontWeight = FontWeight.Black) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text("Introduce el PIN para realizar cambios profundos o desvincular el dispositivo.")
+                                OutlinedTextField(
+                                    value = pinInput,
+                                    onValueChange = { 
+                                        pinInput = it
+                                        pinError = false
+                                    },
+                                    label = { Text("PIN o Contraseña") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = if (pinInput.any { it.isLetter() }) KeyboardType.Text else KeyboardType.NumberPassword
+                                    ),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    isError = pinError,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = accentColor,
+                                        unfocusedBorderColor = Color.Gray
+                                    )
+                                )
+                                
+                                TextButton(
+                                    onClick = {
+                                        if (securityManager.verifyPin(pinInput)) {
+                                            showLogoutConfirmation = true
+                                        } else {
+                                            pinError = true
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Desvincular Dispositivo", color = Color.Red, fontWeight = FontWeight.Bold)
                                 }
                             }
-                        ) {
-                            Text("Desvincular Dispositivo", color = Color.Gray, fontSize = 12.sp)
-                        }
-                    }
+                        },
+                        confirmButton = {
+                            Button(onClick = { showAdminAccess = false }) { Text("Cerrar") }
+                        },
+                        containerColor = Color.White
+                    )
                 }
             }
         }
@@ -469,22 +1064,76 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     @Composable
-    fun MainScreen(appTheme: String, onThemeChange: (String) -> Unit, onLogout: () -> Unit) {
-        var hasUsageStats by remember { mutableStateOf(hasUsageStatsPermission(this)) }
-        var hasOverlay by remember { mutableStateOf(Settings.canDrawOverlays(this)) }
+    fun MainScreen(
+        appTheme: String,
+        syncManager: FirebaseSyncManager,
+        onThemeChange: (String) -> Unit,
+        onLogout: () -> Unit
+    ) {
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        var hasUsageStats by remember { mutableStateOf(hasUsageStatsPermission(this@MainActivity)) }
+        var hasOverlay by remember { mutableStateOf(Settings.canDrawOverlays(this@MainActivity)) }
         
-        var hasCamera by remember { mutableStateOf(ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
-        var hasLocation by remember { mutableStateOf(ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) }
-        var hasNotification by remember { mutableStateOf(isNotificationListenerEnabled(this)) }
+        var hasCamera by remember { mutableStateOf(ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
+        var hasLocation by remember { mutableStateOf(ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) }
+        var hasNotification by remember { mutableStateOf(isNotificationListenerEnabled(this@MainActivity)) }
         
         val rulesManager = remember { RulesManager(this@MainActivity) }
-        val firebaseSyncManager = remember { FirebaseSyncManager(auth.currentUser?.uid ?: "anonymous") }
         
         var installedApps by remember { mutableStateOf<List<Map<String, String>>>(emptyList()) }
         var searchQuery by remember { mutableStateOf("") }
-        
+        var showInviteDialog by remember { mutableStateOf(false) }
         var showThemeSettingsDialog by remember { mutableStateOf(false) }
+        var showChangePinDialog by remember { mutableStateOf(false) }
+        
+        var childName by remember { mutableStateOf("") }
+        var hasNotifiedLink by remember { mutableStateOf(false) }
+
+        if (showChangePinDialog) {
+            var newPin by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { showChangePinDialog = false },
+                title = { Text("🔐 Restablecer PIN Maestro", fontWeight = FontWeight.Black) },
+                text = {
+                    Column {
+                        var useLetters by remember { mutableStateOf(newPin.any { it.isLetter() }) }
+                        Text("Este PIN se sincronizará automáticamente con todos los dispositivos de tus hijos.", fontSize = 12.sp, color = Color.Gray)
+                        Spacer(Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Checkbox(checked = useLetters, onCheckedChange = { useLetters = it })
+                            Text("Incluir letras (Contraseña)", fontSize = 14.sp)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = newPin,
+                            onValueChange = { newPin = it },
+                            label = { Text(if (useLetters) "Nueva Contraseña" else "Nuevo PIN numérico") },
+                            keyboardOptions = KeyboardOptions(keyboardType = if (useLetters) KeyboardType.Text else KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (newPin.length >= 4) {
+                                syncManager.syncAdminPin(newPin)
+                                showChangePinDialog = false
+                                Toast.makeText(this@MainActivity, "✅ PIN actualizado remotamente", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(this@MainActivity, "El PIN debe ser de al menos 4 dígitos", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ) { Text("Confirmar Cambio") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showChangePinDialog = false }) { Text("Cancelar") }
+                }
+            )
+        }
 
         if (showThemeSettingsDialog) {
             AlertDialog(
@@ -499,18 +1148,13 @@ class MainActivity : ComponentActivity() {
                 },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Niño
                         Surface(
                             onClick = { onThemeChange("BOY") },
                             shape = RoundedCornerShape(16.dp),
                             color = if (appTheme == "BOY") Color(0xFF1976D2) else Color(0xFFE3F2FD),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
+                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text("👦", fontSize = 32.sp)
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("Modo Niño", fontWeight = FontWeight.Black, color = if (appTheme == "BOY") Color.White else Color(0xFF1565C0))
@@ -519,19 +1163,13 @@ class MainActivity : ComponentActivity() {
                                 if (appTheme == "BOY") Text("✓", color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp)
                             }
                         }
-
-                        // Niña
                         Surface(
                             onClick = { onThemeChange("GIRL") },
                             shape = RoundedCornerShape(16.dp),
                             color = if (appTheme == "GIRL") Color(0xFFE91E63) else Color(0xFFFCE4EC),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
+                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text("👧", fontSize = 32.sp)
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("Modo Niña", fontWeight = FontWeight.Black, color = if (appTheme == "GIRL") Color.White else Color(0xFFC2185B))
@@ -540,19 +1178,13 @@ class MainActivity : ComponentActivity() {
                                 if (appTheme == "GIRL") Text("✓", color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp)
                             }
                         }
-
-                        // Oscuro
                         Surface(
                             onClick = { onThemeChange("DARK") },
                             shape = RoundedCornerShape(16.dp),
                             color = if (appTheme == "DARK") Color(0xFF212121) else Color(0xFFEEEEEE),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
+                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text("🌙", fontSize = 32.sp)
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("Modo Oscuro", fontWeight = FontWeight.Black, color = if (appTheme == "DARK") Color.White else Color(0xFF424242))
@@ -564,374 +1196,266 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 confirmButton = {
-                    Button(
-                        onClick = { showThemeSettingsDialog = false },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) { Text("Guardar", fontWeight = FontWeight.Bold) }
+                    Button(onClick = { showThemeSettingsDialog = false }, modifier = Modifier.fillMaxWidth()) { Text("Guardar", fontWeight = FontWeight.Bold) }
                 }
             )
         }
-var showInviteDialog by remember { mutableStateOf(false) }
-
         if (showInviteDialog) {
-            val appLink = "https://play.google.com/store/apps/details?id=com.kiboo.app"
             AlertDialog(
                 onDismissRequest = { showInviteDialog = false },
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                        Text("📲", fontSize = 36.sp)
-                        Spacer(Modifier.height(4.dp))
-                        Text("Añadir Dispositivo Hijo", fontWeight = FontWeight.Black, fontSize = 17.sp, textAlign = TextAlign.Center)
-                        Text("Instala Kiboo desde la Play Store en el celular del niño", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                        Text("🔗", fontSize = 40.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Vinculación Automática", fontWeight = FontWeight.Black)
+                        Text("Ingresa este código en el celular del niño", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center)
                     }
                 },
                 text = {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Link box
-                        Surface(
-                            color = Color(0xFFF5F5F5),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "kiboo.app/descargar",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                IconButton(onClick = {
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, "Instala Kiboo en el celular de nuestro hijo para protegerlo: $appLink")
-                                    }
-                                    startActivity(Intent.createChooser(shareIntent, "Compartir Kiboo"))
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Share,
-                                        contentDescription = "Compartir",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        var internalPairingCode by remember { mutableStateOf<String?>(null) }
+                        LaunchedEffect(Unit) {
+                            syncManager.generatePairingCode(auth.currentUser?.uid ?: "anonymous") { code ->
+                                internalPairingCode = code ?: "ERROR"
                             }
                         }
-
-                        // QR Code
-                        val qrBitmap = remember { generateQrBitmap(appLink) }
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
-                            shadowElevation = 4.dp,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        ) {
-                            Image(
-                                bitmap = qrBitmap.asImageBitmap(),
-                                contentDescription = "QR Code de instalación",
-                                modifier = Modifier
-                                    .size(200.dp)
-                                    .padding(12.dp)
-                            )
+                        if (internalPairingCode != null && internalPairingCode != "ERROR") {
+                            val formattedCode = if (internalPairingCode!!.length == 8) "${internalPairingCode!!.substring(0, 4)} ${internalPairingCode!!.substring(4)}" else internalPairingCode!!
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = formattedCode, fontSize = 42.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary, letterSpacing = 4.sp, textAlign = TextAlign.Center)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                val context = LocalContext.current
+                                IconButton(onClick = {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    val clip = android.content.ClipData.newPlainText("Código", internalPairingCode!!)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, "Código copiado", Toast.LENGTH_SHORT).show()
+                                }) { Icon(Icons.Default.Share, contentDescription = "Copiar Código", tint = MaterialTheme.colorScheme.primary) }
+                            }
+                            Text("Expira en 10 minutos por seguridad", color = Color.Red, style = MaterialTheme.typography.labelSmall)
+                        } else if (internalPairingCode == "ERROR") {
+                            Text("Error de red. Intenta de nuevo.", color = Color.Red, fontWeight = FontWeight.Bold)
+                        } else {
+                            CircularProgressIndicator(modifier = Modifier.size(32.dp), color = MaterialTheme.colorScheme.primary)
                         }
-                        Text(
-                            "Escanea con la cámara del celular del niño",
-                            fontSize = 12.sp,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Divider(color = Color.LightGray, thickness = 1.dp)
-
-                        // Botón Copiar
-                        Button(
-                            onClick = {
-                                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                val clip = android.content.ClipData.newPlainText("Kiboo Link", appLink)
-                                clipboard.setPrimaryClip(clip)
-                                Toast.makeText(this@MainActivity, "✅ Enlace copiado al portapapeles", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("📋  Copiar enlace", fontWeight = FontWeight.Bold)
-                        }
-
-                        // Botón Abrir enlace
-                        OutlinedButton(
-                            onClick = {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(appLink))
-                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(this@MainActivity, "No se pudo abrir el navegador", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                        ) {
-                            Text("🌐  Abrir en navegador", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text("Instala Kiboo en el dispositivo de tu hijo y selecciona el modo 'Hijo' para ingresar este código.", fontSize = 13.sp, textAlign = TextAlign.Center, color = Color.Gray)
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { showInviteDialog = false }) {
-                        Text("Cerrar", color = Color.Gray)
-                    }
+                    Button(onClick = { showInviteDialog = false }, modifier = Modifier.fillMaxWidth()) { Text("Entendido", fontWeight = FontWeight.Bold) }
                 }
             )
         }
 
-        LaunchedEffect(Unit) {
-            firebaseSyncManager.listenForInstalledApps { apps ->
+        var totalUsageMs by remember { mutableStateOf(0L) }
+        var dailyAppsUsage by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+        var showScreenTimeDashboard by remember { mutableStateOf(false) }
+        var linkedDevices by remember { mutableStateOf<List<Map<String, String>>>(emptyList()) }
+        var selectedDevice by remember { mutableStateOf<Map<String, String>?>(null) }
+        var deviceMenuExpanded by remember { mutableStateOf(false) }
+        var showAppsManagement by remember { mutableStateOf(false) }
+        var showDowntimeScreen by remember { mutableStateOf(false) }
+
+        LaunchedEffect(currentUser) {
+            syncManager.listenForInstalledApps { apps ->
                 val uniqueApps = apps.distinctBy { it["packageName"] }
                 installedApps = uniqueApps
             }
+            syncManager.listenForUsageStats { total, apps ->
+                totalUsageMs = total
+                dailyAppsUsage = apps
+            }
+            syncManager.listenForChildProfile { name, _, _ ->
+                if (name.isNotBlank() && !hasNotifiedLink) {
+                    childName = name
+                    hasNotifiedLink = true
+                    Toast.makeText(this@MainActivity, "✨ Dispositivo \"$name\" vinculado correctamente.", Toast.LENGTH_LONG).show()
+                }
+            }
+            currentUser?.uid?.let { uid ->
+                syncManager.listenForLinkedDevices(uid) { devices ->
+                    linkedDevices = devices
+                    if (selectedDevice == null && devices.isNotEmpty()) {
+                        selectedDevice = devices.first()
+                        syncManager.updateChildId(devices.first()["childId"] ?: "")
+                    }
+                }
+            }
         }
 
-        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            // Header Dashboard
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
-                shadowElevation = 8.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)))
-                        .padding(24.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+        if (showScreenTimeDashboard) {
+            ScreenTimeDashboard(
+                onDismiss = { showScreenTimeDashboard = false },
+                totalUsageMs = totalUsageMs,
+                dailyAppsUsage = dailyAppsUsage,
+                syncManager = syncManager
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // --- CABECERA PREMIUM REDISEÑADA ---
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = Brush.verticalGradient(colors = listOf(Color(0xFF1976D2), Color(0xFF42A5F5))),
+                                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+                            )
                     ) {
-                        Column {
-                            Text("Panel Admin", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
-                            Text("Kiboo", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .statusBarsPadding()
+                                .padding(horizontal = 24.dp, vertical = 24.dp),
+                            horizontalAlignment = Alignment.Start
                         ) {
-                            // Botón Añadir Hijo
-                            IconButton(
-                                onClick = { showInviteDialog = true },
-                                modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
+                            // Fila Superior: Selector y Menú
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.PersonAdd, contentDescription = "Añadir Hijo", tint = Color.White)
-                            }
-                            
-                            // Menú Desplegable (Cerrar sesión, Modo oscuro)
-                            var menuExpanded by remember { mutableStateOf(false) }
-                            Box {
-                                IconButton(
-                                    onClick = { menuExpanded = true },
-                                    modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
-                                ) {
-                                    Icon(Icons.Default.MoreVert, contentDescription = "Más opciones", tint = Color.White)
+                                Box {
+                                    Row(
+                                        modifier = Modifier
+                                            .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
+                                            .clickable { if (linkedDevices.isNotEmpty()) deviceMenuExpanded = true }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Surface(modifier = Modifier.size(24.dp), shape = CircleShape, color = Color.White.copy(alpha = 0.2f)) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                val avatar = selectedDevice?.get("avatar") ?: "🤖"
+                                                if (avatar.length < 5) Text(avatar, fontSize = 14.sp)
+                                                else {
+                                                    val bytes = Base64.decode(avatar, Base64.DEFAULT)
+                                                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                                    Image(bitmap = bitmap.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
+                                                }
+                                            }
+                                        }
+                                        Text(selectedDevice?.get("name") ?: "Seleccionar Dispositivo", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    }
+                                    DropdownMenu(expanded = deviceMenuExpanded, onDismissRequest = { deviceMenuExpanded = false }, modifier = Modifier.background(Color.White).width(200.dp)) {
+                                        linkedDevices.forEach { device ->
+                                            DropdownMenuItem(
+                                                text = { Text(device["name"] ?: "", fontWeight = FontWeight.Bold) },
+                                                onClick = {
+                                                    selectedDevice = device
+                                                    deviceMenuExpanded = false
+                                                    syncManager.updateChildId(device["childId"] ?: "")
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
-                                
-                                DropdownMenu(
-                                    expanded = menuExpanded,
-                                    onDismissRequest = { menuExpanded = false },
-                                    modifier = Modifier
-                                        .background(Color.White)
-                                        .width(220.dp)
-                                ) {
-                                    // Configuración (con modos de color adentro)
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                Text("⚙️", fontSize = 18.sp)
-                                                Column {
-                                                    Text("Configuración", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                                    Text("Temas y ajustes", fontSize = 11.sp, color = Color.Gray)
-                                                }
-                                            }
-                                        },
-                                        onClick = {
-                                            menuExpanded = false
-                                            showThemeSettingsDialog = true
-                                        }
-                                    )
 
-                                    // Grupo Familiar
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                Text("👨‍👩‍👧‍👦", fontSize = 18.sp)
-                                                Column {
-                                                    Text("Grupo Familiar", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                                    Text("Gestionar miembros", fontSize = 11.sp, color = Color.Gray)
-                                                }
-                                            }
-                                        },
-                                        onClick = {
-                                            menuExpanded = false
-                                            Toast.makeText(this@MainActivity, "Próximamente: Grupo Familiar", Toast.LENGTH_SHORT).show()
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(onClick = { showInviteDialog = true }, shape = CircleShape, color = Color.White.copy(alpha = 0.15f), modifier = Modifier.size(40.dp)) {
+                                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                                    }
+                                    var menuExpanded by remember { mutableStateOf(false) }
+                                    Box {
+                                        Surface(onClick = { menuExpanded = true }, shape = RoundedCornerShape(16.dp), color = Color.White.copy(alpha = 0.15f), modifier = Modifier.width(36.dp).height(48.dp)) {
+                                            Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White) }
                                         }
-                                    )
-
-                                    Divider(color = Color.LightGray, thickness = 0.8.dp, modifier = Modifier.padding(horizontal = 12.dp))
-
-                                    // Cerrar Sesión (siempre al último)
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                Text("🚪", fontSize = 18.sp)
-                                                Text("Cerrar Sesión", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFFD32F2F))
-                                            }
-                                        },
-                                        onClick = {
-                                            menuExpanded = false
-                                            onLogout()
+                                        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }, modifier = Modifier.background(Color.White).width(200.dp)) {
+                                            DropdownMenuItem(text = { Text("⚙️ Configuración") }, onClick = { menuExpanded = false; showThemeSettingsDialog = true })
+                                            DropdownMenuItem(text = { Text("🔐 Seguridad") }, onClick = { menuExpanded = false; showChangePinDialog = true })
+                                            Divider()
+                                            DropdownMenuItem(text = { Text("🚪 Cerrar Sesión", color = Color.Red) }, onClick = { menuExpanded = false; onLogout() })
                                         }
-                                    )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(16.dp))
+                            val firstName = currentUser?.displayName?.split(" ")?.firstOrNull() ?: "Tutor"
+                            Text("Hola, $firstName", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                            
+                            Spacer(Modifier.height(20.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                DashboardStat(count = "${installedApps.size}", label = "Total Apps")
+                                DashboardStat(count = "${installedApps.count { rulesManager.isAppBlocked(it["packageName"] ?: "") }}", label = "Bloqueadas", color = Color(0xFFFFB19A))
+                            }
+
+                            Spacer(Modifier.height(16.dp))
+                            Surface(
+                                onClick = { showScreenTimeDashboard = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.White.copy(alpha = 0.15f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+                            ) {
+                                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column {
+                                        Text("⏱️ Tiempo Hoy", color = Color.White.copy(alpha = 0.7f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        val h = totalUsageMs / 3600000; val m = (totalUsageMs / 60000) % 60
+                                        Text("${h}h ${m}m", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(-8.dp)) {
+                                        dailyAppsUsage.take(3).forEach { app ->
+                                            Surface(shape = CircleShape, color = Color.White.copy(0.3f), modifier = Modifier.size(32.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White)) {
+                                                Box(contentAlignment = Alignment.Center) { Text(app["appName"].toString().take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold) }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+
+                    var currentTab by remember { mutableStateOf(0) }
+                    TabRow(
+                        selectedTabIndex = currentTab,
+                        containerColor = Color.Transparent,
+                        contentColor = Color(0xFF1976D2),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        indicator = { tabPositions ->
+                            TabRowDefaults.Indicator(Modifier.tabIndicatorOffset(tabPositions[currentTab]), color = Color(0xFF1976D2))
+                        }
                     ) {
-                        DashboardStat(count = "${installedApps.size}", label = "Total Apps")
-                        DashboardStat(count = "${installedApps.count { rulesManager.isAppBlocked(it["packageName"] ?: "") }}", label = "Bloqueadas", color = Color(0xFFFFB19A))
+                        Tab(selected = currentTab == 0, onClick = { currentTab = 0 }, text = { Text("Apps", fontWeight = FontWeight.Bold) })
+                        Tab(selected = currentTab == 1, onClick = { currentTab = 1 }, text = { Text("Monitor", fontWeight = FontWeight.Bold) })
+                        Tab(selected = currentTab == 2, onClick = { currentTab = 2 }, text = { Text("Ubicación", fontWeight = FontWeight.Bold) })
                     }
-                }
-            }
-            
-            var currentTab by remember { mutableStateOf(0) }
-            TabRow(
-                selectedTabIndex = currentTab,
-                containerColor = Color.Transparent,
-                contentColor = Color(0xFF7B5400),
-                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)
-            ) {
-                Tab(selected = currentTab == 0, onClick = { currentTab = 0 }, text = { Text("Apps", fontWeight = FontWeight.Bold) })
-                Tab(selected = currentTab == 1, onClick = { currentTab = 1 }, text = { Text("Monitor", fontWeight = FontWeight.Bold) })
-            }
 
-            if (currentTab == 0) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                // Search Bar
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    placeholder = { Text("Buscar aplicación...", color = Color.Gray) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.Gray) },
-                    shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = Color.White,
-                        focusedContainerColor = Color.White,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedBorderColor = Color(0xFF7B5400)
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // Panel de Permisos
-                var showPermissionsDialog by remember { mutableStateOf(false) }
-
-                val missingPermissions = listOfNotNull(
-                    if (!hasUsageStats) "Acceso Uso" else null,
-                    if (!hasOverlay) "Superposición" else null,
-                    if (!hasCamera) "Cámara" else null,
-                    if (!hasLocation) "Ubicación" else null,
-                    if (!hasNotification) "Notificaciones" else null
-                )
-
-                if (missingPermissions.isNotEmpty()) {
-                    Button(
-                        onClick = { showPermissionsDialog = true },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD84315)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("⚠️ Configurar Permisos Faltantes (${missingPermissions.size})", fontWeight = FontWeight.Bold)
-                    }
-                } else {
-                    Button(
-                        onClick = { showPermissionsDialog = true },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("✅ Permisos Completos (Ver/Editar)", fontWeight = FontWeight.Bold)
+                    if (currentTab == 0) {
+                        AppsMenuTab(
+                            onManageApps = { showAppsManagement = true },
+                            onOpenDowntime = { showDowntimeScreen = true },
+                            onToggleInstantBlock = { blocked, duration -> 
+                                val command = if (blocked) {
+                                    if (duration != null) "BLOCK_ALL_$duration" else "BLOCK_ALL"
+                                } else "UNBLOCK_ALL"
+                                syncManager.sendCommand(command) 
+                            }
+                        )
+                    } else if (currentTab == 1) {
+                        MonitorScreen(syncManager = syncManager)
+                    } else {
+                        LocationTrackerScreen(syncManager = syncManager)
                     }
                 }
 
-                if (showPermissionsDialog) {
-                    PermissionsManagerDialog(
-                        context = this@MainActivity,
-                        onDismiss = { showPermissionsDialog = false },
-                        hasUsageStats = hasUsageStats,
-                        hasOverlay = hasOverlay,
-                        hasCamera = hasCamera,
-                        hasLocation = hasLocation,
-                        hasNotification = hasNotification
+                if (showAppsManagement) {
+                    AppsManagementScreen(
+                        installedApps = installedApps,
+                        rulesManager = rulesManager,
+                        syncManager = syncManager,
+                        onDismiss = { showAppsManagement = false }
                     )
                 }
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("Uso", hasUsageStats)
-                    StatusChip("Overlay", hasOverlay)
-                    
-                    Spacer(modifier = Modifier.weight(1f))
-                    
-                    Button(
-                        onClick = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B5400).copy(alpha = 0.1f), contentColor = Color(0xFF7B5400))
-                    ) {
-                        Text("Ajustes", style = MaterialTheme.typography.labelSmall)
-                    }
+                if (showDowntimeScreen) {
+                    DowntimeScreen(
+                        syncManager = syncManager,
+                        onDismiss = { showDowntimeScreen = false }
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "Aplicaciones Instaladas", 
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF3E2723)
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-
-                val filteredApps = installedApps.filter { 
-                    val name = it["name"] ?: ""
-                    val packageName = it["packageName"] ?: ""
-                    name.contains(searchQuery, ignoreCase = true) || 
-                    packageName.contains(searchQuery, ignoreCase = true)
-                }
-
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(filteredApps) { app ->
-                        AppRuleItem(app, rulesManager, firebaseSyncManager)
-                    }
-                }
-            }
-            } else {
-                MonitorScreen(firebaseSyncManager)
             }
         }
     }
@@ -956,7 +1480,7 @@ var showInviteDialog by remember { mutableStateOf(false) }
     }
 
     @Composable
-    fun AppRuleItem(app: Map<String, String>, rulesManager: RulesManager, firebaseSyncManager: FirebaseSyncManager) {
+    fun AppRuleItem(app: Map<String, String>, rulesManager: RulesManager, syncManager: FirebaseSyncManager) {
         val packageName = app["packageName"] ?: ""
         val name = app["name"] ?: ""
         
@@ -1005,7 +1529,7 @@ var showInviteDialog by remember { mutableStateOf(false) }
                                 currentRules.removeAll { r -> r.packageName == packageName }
                                 currentRules.add(Rule(packageName, isBlocked = it, isMonitored = isMonitored))
                                 rulesManager.saveRules(currentRules)
-                                firebaseSyncManager.updateRulesInCloud(currentRules)
+                                syncManager.updateRulesInCloud(currentRules)
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
@@ -1027,7 +1551,7 @@ var showInviteDialog by remember { mutableStateOf(false) }
                                 currentRules.removeAll { r -> r.packageName == packageName }
                                 currentRules.add(Rule(packageName, isBlocked = isBlocked, isMonitored = it))
                                 rulesManager.saveRules(currentRules)
-                                firebaseSyncManager.updateRulesInCloud(currentRules)
+                                syncManager.updateRulesInCloud(currentRules)
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
@@ -1044,33 +1568,70 @@ var showInviteDialog by remember { mutableStateOf(false) }
     }
 
     @Composable
-    fun MonitorScreen(firebaseSyncManager: FirebaseSyncManager) {
-        var isStreaming by remember { mutableStateOf(false) }
-        var cameraFrame by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-        var locationText by remember { mutableStateOf("Buscando señal GPS...") }
+    fun MonitorScreen(syncManager: FirebaseSyncManager) {
+        val context = LocalContext.current
+        var isCameraStreaming by remember { mutableStateOf(false) }
+        var isScreenStreaming by remember { mutableStateOf(false) }
+        var isAudioStreaming by remember { mutableStateOf(false) }
+        var isRecordingAudio by remember { mutableStateOf(false) }
         
-        var batteryPct by remember { mutableStateOf(-1) }
-        var gpsEnabled by remember { mutableStateOf(false) }
+        var cameraFrame by remember { mutableStateOf<String?>(null) }
+        var screenFrame by remember { mutableStateOf<String?>(null) }
         var notifications by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
         
+        var audioOutputFile: File? by remember { mutableStateOf(null) }
+        var audioOutputStream: FileOutputStream? by remember { mutableStateOf(null) }
+        
+        var deviceLocation by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+        
+        // --- Audio Track Setup ---
+        val audioTrack = remember {
+            val sampleRate = 16000
+            val channelConfig = AudioFormat.CHANNEL_OUT_MONO
+            val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+            val bufferSize = AudioTrack.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+            AudioTrack(
+                AudioManager.STREAM_MUSIC,
+                sampleRate,
+                channelConfig,
+                audioFormat,
+                bufferSize,
+                AudioTrack.MODE_STREAM
+            )
+        }
+
         LaunchedEffect(Unit) {
-            firebaseSyncManager.listenForLocation { lat, lng ->
-                locationText = "Lat: $lat, Lng: $lng"
+            syncManager.listenForCameraFrame { cameraFrame = it }
+            syncManager.listenForScreenFrame { screenFrame = it }
+            syncManager.listenForNotifications { notifications = it }
+            syncManager.listenForDeviceStatus { bat, gps ->
+                // Actualizaciones de estado del dispositivo removidas de la UI
             }
-            firebaseSyncManager.listenForCameraFrame { base64 ->
-                try {
-                    val decodedBytes = Base64.decode(base64, Base64.DEFAULT)
-                    cameraFrame = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            syncManager.listenForLocation { lat, lng ->
+                deviceLocation = Pair(lat, lng)
+            }
+            
+            syncManager.listenForAudioChunk { base64 ->
+                if (isAudioStreaming) {
+                    val bytes = Base64.decode(base64, Base64.DEFAULT)
+                    audioTrack.write(bytes, 0, bytes.size)
+                    if (audioTrack.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                        audioTrack.play()
+                    }
+                    
+                    // Recording logic
+                    if (isRecordingAudio) {
+                        audioOutputStream?.write(bytes)
+                    }
                 }
             }
-            firebaseSyncManager.listenForDeviceStatus { bat, gps ->
-                batteryPct = bat
-                gpsEnabled = gps
-            }
-            firebaseSyncManager.listenForNotifications { notifs ->
-                notifications = notifs
+        }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                audioTrack.stop()
+                audioTrack.release()
+                audioOutputStream?.close()
             }
         }
 
@@ -1079,117 +1640,188 @@ var showInviteDialog by remember { mutableStateOf(false) }
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
         ) {
-            // Modulo: Estado del Dispositivo
-            item {
-                Text("Estado del Dispositivo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF3E2723))
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    StatusCard(title = "Batería", value = if (batteryPct >= 0) "$batteryPct%" else "---", modifier = Modifier.weight(1f))
-                    StatusCard(title = "GPS", value = if (gpsEnabled) "Encendido" else "Apagado", modifier = Modifier.weight(1f), 
-                               valueColor = if (gpsEnabled) Color(0xFF4CAF50) else Color.Red)
-                }
-            }
 
-            // Módulo: Ubicación
+            // --- Live Screen Section ---
             item {
-                Text("Cámara y Ubicación", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text("Duplicar Pantalla", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
                     shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 2.dp
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Última Posición GPS", fontWeight = FontWeight.Bold, color = Color(0xFF7B5400))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(locationText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-            }
-
-            // Módulo: Visor de Cámara
-            item {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().height(250.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.Black,
-                    contentColor = Color.White,
-                    shadowElevation = 4.dp
+                    color = Color.Black
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        if (cameraFrame != null) {
+                        if (isScreenStreaming && screenFrame != null) {
+                            val bitmap = remember(screenFrame) {
+                                val bytes = Base64.decode(screenFrame, Base64.DEFAULT)
+                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                            }
                             Image(
-                                bitmap = cameraFrame!!.asImageBitmap(),
-                                contentDescription = "Stream de la cámara",
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "Screen Stream",
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                contentScale = ContentScale.Fit
                             )
                         } else {
-                            Text(if (isStreaming) "Cargando Stream..." else "Cámara inactiva", color = Color.Gray)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Tv, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(48.dp))
+                                Text("Pantalla inactiva", color = Color.Gray)
+                            }
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = {
-                            isStreaming = true
-                            firebaseSyncManager.sendCommand("START_CAMERA")
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B5400))
-                    ) {
-                        Text("Ver Cámara")
+                        onClick = { isScreenStreaming = true; syncManager.sendCommand("START_SCREEN") },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isScreenStreaming) Color.Red else MaterialTheme.colorScheme.primary)
+                    ) { 
+                        Text(if (isScreenStreaming) "Detener" else "Ver Pantalla") 
                     }
-                    Button(
-                        onClick = {
-                            isStreaming = false
-                            cameraFrame = null
-                            firebaseSyncManager.sendCommand("STOP_CAMERA")
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray, contentColor = Color.Black)
-                    ) {
-                        Text("Parar")
+                    if (isScreenStreaming) {
+                        OutlinedButton(onClick = { isScreenStreaming = false; syncManager.sendCommand("STOP_SCREEN") }) {
+                            Text("Cerrar")
+                        }
                     }
                 }
             }
 
-            // Módulo: Mensajes
+            // --- Audio & Recording Section ---
             item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Mensajes Recientes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF3E2723))
-                Text("Los mensajes se eliminan automáticamente tras 3 días.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            
-            if (notifications.isEmpty()) {
-                item {
-                    Text("No hay mensajes interceptados", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = Color.Gray)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 2.dp
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Escucha Ambiental", fontWeight = FontWeight.Black)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = {
+                                    if (isAudioStreaming) {
+                                        isAudioStreaming = false
+                                        syncManager.sendCommand("STOP_AUDIO")
+                                        audioTrack.pause()
+                                        audioTrack.flush()
+                                    } else {
+                                        isAudioStreaming = true
+                                        syncManager.sendCommand("START_AUDIO")
+                                    }
+                                },
+                                modifier = Modifier.background(if (isAudioStreaming) Color.Red.copy(0.1f) else Color.Gray.copy(0.1f), CircleShape)
+                            ) {
+                                Icon(
+                                    if (isAudioStreaming) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = if (isAudioStreaming) Color.Red else Color.DarkGray
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(if (isAudioStreaming) "Escuchando en vivo..." else "Audio desactivado", fontSize = 14.sp)
+                                if (isAudioStreaming) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(2.dp), color = Color.Red)
+                            }
+                            
+                            // RECORD BUTTON
+                            IconButton(
+                                onClick = {
+                                    if (isRecordingAudio) {
+                                        isRecordingAudio = false
+                                        audioOutputStream?.close()
+                                        audioOutputStream = null
+                                        Toast.makeText(context, "Grabación guardada", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        if (!isAudioStreaming) {
+                                            Toast.makeText(context, "Activa el audio primero", Toast.LENGTH_SHORT).show()
+                                            return@IconButton
+                                        }
+                                        val folder = File(context.filesDir, "KibooRecordings")
+                                        if (!folder.exists()) folder.mkdirs()
+                                        val file = File(folder, "REC_${System.currentTimeMillis()}.pcm")
+                                        audioOutputFile = file
+                                        audioOutputStream = FileOutputStream(file)
+                                        isRecordingAudio = true
+                                        Toast.makeText(context, "Grabando...", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = isAudioStreaming,
+                                modifier = Modifier.background(if (isRecordingAudio) Color.Red else Color.Gray.copy(0.1f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Mic, contentDescription = null, tint = if (isRecordingAudio) Color.White else Color.DarkGray)
+                            }
+                        }
+                    }
                 }
+            }
+
+            // --- Quick Access Panel (Recordings Library) ---
+            item {
+                Text("Biblioteca de Grabaciones", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            }
+
+            val recordingsFolder = File(context.filesDir, "KibooRecordings")
+            val recordingFiles = recordingsFolder.listFiles()?.filter { it.extension == "pcm" }?.sortedByDescending { it.lastModified() } ?: emptyList()
+
+            if (recordingFiles.isEmpty()) {
+                item { Text("No hay grabaciones guardadas", color = Color.Gray, fontSize = 12.sp) }
             } else {
-                items(notifications.size) { index ->
-                    val notif = notifications[index]
-                    val title = notif["title"] as? String ?: "Desconocido"
-                    val message = notif["message"] as? String ?: ""
-                    val packageName = notif["packageName"] as? String ?: ""
-                    val timestamp = notif["timestamp"] as? Long ?: 0L
-                    
-                    val date = java.text.SimpleDateFormat("dd/MMM HH:mm", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
-                    
+                items(recordingFiles) { file ->
+                    var isPlayingItem by remember { mutableStateOf(false) }
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface,
+                        color = Color.White,
                         shadowElevation = 1.dp
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF7B5400))
-                                Text(date, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Folder, contentDescription = null, tint = Color.Gray)
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(file.name, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("${file.length() / 1024} KB", fontSize = 11.sp, color = Color.Gray)
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(message, style = MaterialTheme.typography.bodyMedium)
-                            Text(packageName, style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
+                            IconButton(onClick = {
+                                // Simple play logic for PCM (reuse audioTrack)
+                                if (!isPlayingItem) {
+                                    isPlayingItem = true
+                                    Thread {
+                                        val bytes = file.readBytes()
+                                        audioTrack.play()
+                                        audioTrack.write(bytes, 0, bytes.size)
+                                        isPlayingItem = false
+                                    }.start()
+                                }
+                            }) {
+                                Icon(if (isPlayingItem) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
+                            }
+                            IconButton(onClick = { 
+                                file.delete()
+                                // Re-render triggers would be better with a state list, but listFiles works for now
+                                Toast.makeText(context, "Grabación eliminada", Toast.LENGTH_SHORT).show()
+                            }) {
+                                Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red.copy(0.7f))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- Notifications Section (Moved) ---
+            item {
+                Text("Alertas de Seguridad", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            }
+
+            if (notifications.isEmpty()) {
+                item { Text("No hay alertas recientes", color = Color.Gray, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
+            } else {
+                items(notifications.size) { index ->
+                    val notif = notifications[index]
+                    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = Color.White, shadowElevation = 1.dp) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(notif["title"] as? String ?: "S/T", fontWeight = FontWeight.Bold)
+                            Text(notif["message"] as? String ?: "", fontSize = 13.sp)
                         }
                     }
                 }
@@ -1221,7 +1853,8 @@ var showInviteDialog by remember { mutableStateOf(false) }
         hasOverlay: Boolean,
         hasCamera: Boolean,
         hasLocation: Boolean,
-        hasNotification: Boolean
+        hasNotification: Boolean,
+        onTriggerGuide: (String) -> Unit
     ) {
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -1230,71 +1863,101 @@ var showInviteDialog by remember { mutableStateOf(false) }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Toca los interruptores para ir a configurar los permisos en el sistema Android.", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                    Text("Toca los interruptores para ver la guía de configuración.", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
                     
                     PermissionSwitchRow(
                         title = "Uso de Aplicaciones",
-                        subtitle = "Ver apps usadas",
+                        subtitle = "Ver actividad en el dispositivo",
+                        description = "Permite a Kiboo saber cuánto tiempo pasa tu hijo en cada app.",
                         isEnabled = hasUsageStats,
-                        onClick = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        onClick = { onTriggerGuide("USAGE") }
                     )
                     
                     PermissionSwitchRow(
+                        title = "Accesibilidad (Control Total)",
+                        subtitle = "Bloqueo y Filtro Web",
+                        description = "Es el motor del escudo. Permite bloquear apps al instante.",
+                        isEnabled = false,
+                        onClick = { onTriggerGuide("ACCESSIBILITY") }
+                    )
+
+                    PermissionSwitchRow(
                         title = "Superposición (Overlay)",
-                        subtitle = "Bloquear pantallas",
+                        subtitle = "Pantallas de Bloqueo",
+                        description = "Permite mostrar la pantalla de 'Tiempo Agotado' sobre otras apps.",
                         isEnabled = hasOverlay,
-                        onClick = { context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        onClick = { onTriggerGuide("OVERLAY") }
                     )
                     
                     PermissionSwitchRow(
                         title = "Leer Notificaciones",
-                        subtitle = "Interceptar mensajes",
+                        subtitle = "Notificación de mensajes",
+                        description = "Kiboo leerá las alertas entrantes para detectar acoso.",
                         isEnabled = hasNotification,
-                        onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    )
-                    
-                    PermissionSwitchRow(
-                        title = "Cámara y Ubicación",
-                        subtitle = "Vigilancia en vivo",
-                        isEnabled = hasCamera && hasLocation,
-                        onClick = { 
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.fromParts("package", context.packageName, null)
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            context.startActivity(intent)
-                        }
+                        onClick = { onTriggerGuide("NOTIFICATION") }
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = onDismiss) { Text("Cerrar") }
+                TextButton(onClick = onDismiss) { Text("Hecho", fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text("Omitir", color = Color.Gray) }
             },
             containerColor = Color.White
         )
     }
 
     @Composable
-    fun PermissionSwitchRow(title: String, subtitle: String, isEnabled: Boolean, onClick: () -> Unit) {
+    fun SecurityLevelRow(label: String, isActive: Boolean) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-            }
-            Switch(
-                checked = isEnabled,
-                onCheckedChange = { onClick() },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color(0xFF4CAF50),
-                    checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
-                    uncheckedThumbColor = Color.LightGray,
-                    uncheckedTrackColor = Color.LightGray.copy(alpha = 0.5f)
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Surface(
+                shape = CircleShape,
+                color = if (isActive) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Text(
+                    if (isActive) "Activado" else "Pendiente",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isActive) Color(0xFF2E7D32) else Color(0xFFC62828),
+                    fontWeight = FontWeight.Bold
                 )
-            )
+            }
+        }
+    }
+
+    @Composable
+    fun PermissionSwitchRow(title: String, subtitle: String, description: String, isEnabled: Boolean, onClick: () -> Unit) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color(0xFF1976D2))
+                }
+                Switch(
+                    checked = isEnabled,
+                    onCheckedChange = { onClick() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF4CAF50),
+                        checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                        uncheckedThumbColor = Color.LightGray,
+                        uncheckedTrackColor = Color.LightGray.copy(alpha = 0.5f)
+                    )
+                )
+            }
+            Text(description, style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
+            Divider(color = Color.Gray.copy(alpha = 0.1f))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 
@@ -1328,6 +1991,370 @@ var showInviteDialog by remember { mutableStateOf(false) }
         }
         return mode == AppOpsManager.MODE_ALLOWED
     }
+
+    @Composable
+    fun PermissionNoticeDialog(
+        onDismiss: () -> Unit,
+        onGrantClicked: () -> Unit,
+        missingNotifications: Boolean,
+        missingLocation: Boolean
+    ) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text("Aviso", fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
+                }
+            },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        "Las siguientes funciones precisan permisos básicos para estar operativas:",
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFFF1F5F9),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (missingNotifications) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(shape = CircleShape, color = Color(0xFFFB8C00), modifier = Modifier.size(32.dp)) {
+                                        Icon(Icons.Default.Notifications, null, tint = Color.White, modifier = Modifier.padding(6.dp))
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Text("Sincronizar notificaciones", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            if (missingLocation) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(shape = CircleShape, color = Color(0xFF43A047), modifier = Modifier.size(32.dp)) {
+                                        Icon(Icons.Default.LocationOn, null, tint = Color.White, modifier = Modifier.padding(6.dp))
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Text("Rastreador de ubicaciones", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onGrantClicked,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Text("Conceder permisos", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Omitir por ahora", color = Color.Gray)
+                }
+            },
+            containerColor = Color.White
+        )
+    }
+
+    @Composable
+    fun Level3ProtectionDialog(
+        isAdminActive: Boolean,
+        isIgnoringBattery: Boolean,
+        onDismiss: () -> Unit,
+        onToggleAdmin: () -> Unit,
+        onToggleBatteryOpt: () -> Unit,
+        onOpenAutoStart: () -> Unit,
+        onOpenBatterySaver: () -> Unit,
+        onDone: () -> Unit
+    ) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text("¡Ya casi terminamos!", fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        "Concede los siguientes permisos para que Kiboo se ejecute en segundo plano y puedas supervisar el dispositivo ininterrumpidamente.",
+                        textAlign = TextAlign.Start,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Permiso de administrador", fontWeight = FontWeight.Bold)
+                            Text("Protección contra desinstalación", style = MaterialTheme.typography.labelSmall)
+                        }
+                        Switch(checked = isAdminActive, onCheckedChange = { onToggleAdmin() })
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Ignorar la optimización de batería", fontWeight = FontWeight.Bold)
+                            Text("Estabilidad permanente", style = MaterialTheme.typography.labelSmall)
+                        }
+                        Switch(checked = isIgnoringBattery, onCheckedChange = { onToggleBatteryOpt() })
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Permitir inicio automático", modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                        Button(onClick = onOpenAutoStart, shape = RoundedCornerShape(20.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE3F2FD), contentColor = Color.Blue)) {
+                            Text("Ajustes")
+                        }
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Desactivar modo ahorro energía", modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                        Button(onClick = onOpenBatterySaver, shape = RoundedCornerShape(20.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE3F2FD), contentColor = Color.Blue)) {
+                            Text("Ajustes")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onDone,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Text("Activar Todo", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Omitir por ahora", color = Color.Gray)
+                }
+            },
+            containerColor = Color.White
+        )
+    }
+
+    @Composable
+    fun AdvancedProtectionDialog(
+        onDismiss: () -> Unit,
+        onEnableClicked: () -> Unit
+    ) {
+        var contactsEnabled by remember { mutableStateOf(false) }
+        var smsEnabled by remember { mutableStateOf(false) }
+        var photosEnabled by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text("Activar protección total", fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    Text(
+                        "Con el permiso de tu hijo, puedes activar funciones de protección más completas.",
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+
+                    // Sección: Llamadas y SMS
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = CircleShape, color = Color(0xFF4CAF50), modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Call, null, tint = Color.White, modifier = Modifier.padding(6.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Control de llamadas y SMS", fontWeight = FontWeight.Bold)
+                                Text("Detecta riesgos en la actividad de comunicación.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            }
+                        }
+                        
+                        PermissionSimpleToggle("Permiso de contactos", contactsEnabled) { contactsEnabled = it }
+                        PermissionSimpleToggle("Permiso SMS", smsEnabled) { smsEnabled = it }
+                    }
+
+                    Divider(color = Color.Gray.copy(alpha = 0.1f))
+
+                    // Sección: Fotos
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = CircleShape, color = Color(0xFF3F51B5), modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Build, null, tint = Color.White, modifier = Modifier.padding(6.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Detección de fotos inapropiadas", fontWeight = FontWeight.Bold)
+                                Text("Recibe alertas sobre fotos sospechosas en el álbum.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            }
+                        }
+                        PermissionSimpleToggle("Escanear galería local", photosEnabled) { photosEnabled = it }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onEnableClicked,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6).copy(alpha = if (contactsEnabled || smsEnabled || photosEnabled) 1f else 0.5f)),
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Text("Habilitar", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Omitir", color = Color.Gray)
+                }
+            },
+            containerColor = Color.White
+        )
+    }
+
+    @Composable
+    fun PermissionSimpleToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Switch(
+                checked = checked, 
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF3B82F6))
+            )
+        }
+    }
+
+    @Composable
+    fun PermissionGuideDialog(
+        permissionKey: String,
+        onDismiss: () -> Unit,
+        onConfirmed: () -> Unit
+    ) {
+        val guide = when(permissionKey) {
+            "ACCESSIBILITY" -> Triple("Accesibilidad", "Localiza Kiboo Shield en servicios descargados", "Activa el interruptor")
+            "USAGE" -> Triple("Uso de Apps", "Localiza Kiboo Shield en la lista", "Permite el acceso de uso")
+            "NOTIFICATION" -> Triple("Notificaciones", "Busca Kiboo Shield", "Permite acceso a notificaciones")
+            else -> Triple("Ajustes", "Busca la aplicación Kiboo Shield", "Activa la opción correspondiente")
+        }
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    Text(guide.first, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineMedium)
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        GuideStep(1, guide.second)
+                        GuideStep(2, guide.third)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onConfirmed,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Text("Aceptar", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Omitir", color = Color.Gray)
+                }
+            },
+            containerColor = Color.White
+        )
+    }
+
+    @Composable
+    fun GuideStep(number: Int, text: String) {
+        Row(verticalAlignment = Alignment.Top) {
+            Surface(
+                shape = CircleShape, 
+                color = Color.LightGray.copy(alpha = 0.5f), 
+                modifier = Modifier.size(24.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(number.toString(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(text, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+
+@Composable
+fun HelpAssistantFloatingButton(modifier: Modifier = Modifier) {
+    var showHelpDialog by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        FloatingActionButton(
+            onClick = { showHelpDialog = true },
+            containerColor = Color(0xFF1976D2),
+            contentColor = Color.White,
+            shape = CircleShape,
+            modifier = Modifier.size(56.dp)
+        ) {
+            Icon(Icons.Default.QuestionAnswer, contentDescription = "Ayuda", modifier = Modifier.size(28.dp))
+        }
+    }
+
+    if (showHelpDialog) {
+        HelpAssistantDialog(onDismiss = { showHelpDialog = false })
+    }
+}
+
+@Composable
+fun HelpAssistantDialog(onDismiss: () -> Unit) {
+    val faqs = listOf(
+        "¿Cómo funciona el Bloqueo Instantáneo?" to "Bloquea todas las aplicaciones de entretenimiento y juegos de inmediato. Úsalo para que el niño deje el móvil rápido.",
+        "¿Puedo ver qué aplicaciones usa más?" to "Sí, en la pestaña 'Apps' verás un resumen del tiempo de uso diario por aplicación.",
+        "¿Qué significa 'Ubicación en Tiempo Real'?" to "Kiboo actualiza la posición del niño cada minuto si el GPS está activo. Las rutas se guardan por fecha.",
+        "¿Es seguro el Monitoreo de Audio?" to "Totalmente. El audio ambiental solo se activa bajo tu petición y las grabaciones se guardan localmente en tu móvil.",
+        "¿Qué hacer si el dispositivo sale Offline?" to "Asegúrate de que el niño no haya desactivado el Wi-Fi o que la app Kiboo tenga permiso para inicio automático."
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("🤖 Asistente Kiboo", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item {
+                    Text("¡Hola! Soy tu asistente. Aquí tienes respuestas a las dudas más comunes:", style = MaterialTheme.typography.bodyMedium)
+                }
+                items(faqs) { faq ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Gray.copy(alpha = 0.05f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(faq.first, fontWeight = FontWeight.Bold, color = Color(0xFF1976D2), style = MaterialTheme.typography.bodySmall)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(faq.second, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Entendido") }
+        },
+        containerColor = Color.White
+    )
 }
 
 @Composable
@@ -1366,4 +2393,1129 @@ fun ParentalControlTheme(appTheme: String = SessionManager.THEME_BOY, content: @
         colorScheme = colors,
         content = content
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppsMenuTab(
+    onManageApps: () -> Unit,
+    onOpenDowntime: () -> Unit,
+    onToggleInstantBlock: (Boolean, String?) -> Unit
+) {
+    var showInstantBlockSheet by remember { mutableStateOf(false) }
+    var instantBlockActive by remember { mutableStateOf(false) }
+    var selectedDuration by remember { mutableStateOf("MANUAL") }
+
+    if (showInstantBlockSheet) {
+        InstantBlockBottomSheet(
+            onDismiss = { showInstantBlockSheet = false },
+            onConfirm = { duration ->
+                selectedDuration = duration
+                instantBlockActive = true
+                showInstantBlockSheet = false
+                onToggleInstantBlock(true, duration)
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        // Grupo 1: Tiempo de pantalla y aplicaciones
+        MenuCategory("Tiempo de pantalla y aplicaciones") {
+            MenuListItem(
+                icon = Icons.Default.Lock,
+                title = "Bloqueo instantáneo",
+                trailing = { 
+                    Switch(
+                        checked = instantBlockActive, 
+                        onCheckedChange = { checked -> 
+                            if (checked) {
+                                showInstantBlockSheet = true 
+                            } else {
+                                instantBlockActive = false
+                                onToggleInstantBlock(false, null)
+                            }
+                        }
+                    )
+                }
+            )
+            MenuListItem(
+                icon = Icons.Default.Update, 
+                title = "Tiempo de inactividad", 
+                onClick = onOpenDowntime
+            )
+            MenuListItem(icon = Icons.Default.Apps, title = "Gestión de aplicaciones", onClick = onManageApps)
+        }
+
+        // Grupo 2: Seguridad de contenido
+        MenuCategory("Seguridad de contenido") {
+            MenuListItem(
+                icon = Icons.Default.NotificationsActive,
+                title = "Supervisión de notificaciones",
+                badge = "2"
+            )
+            MenuListItem(icon = Icons.Default.Security, title = "Detección de contenido social")
+            MenuListItem(icon = Icons.Default.Build, title = "Fotos inapropiadas")
+            MenuListItem(icon = Icons.Default.Call, title = "Control de llamadas y SMS")
+        }
+
+        // Grupo 3: Navegación segura
+        MenuCategory("Navegación segura") {
+            MenuListItem(icon = Icons.Default.Language, title = "Restricciones del sitio web")
+            MenuListItem(icon = Icons.Default.History, title = "Historial de navegación")
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InstantBlockBottomSheet(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    val sheetState = rememberModalBottomSheetState()
+    var selectedOption by remember { mutableStateOf("MANUAL") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = Color.White
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Bloqueo instantáneo", fontWeight = FontWeight.Black, fontSize = 20.sp)
+            Spacer(Modifier.height(20.dp))
+
+            // Banner Naranja (Advertencia)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFFFF3E0),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFFFB74D).copy(0.3f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(shape = CircleShape, color = Color(0xFFFF9800), modifier = Modifier.size(24.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("i", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Concede los permisos en Kiboo Kids",
+                        color = Color(0xFFE65100),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Default.KeyboardArrowDown, null, tint = Color(0xFFFF9800), modifier = Modifier.size(18.dp))
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Text(
+                "Cuando está activado, todas las aplicaciones, salvo aquellas que estén siempre permitidas, se bloquearán instantáneamente.",
+                textAlign = TextAlign.Center,
+                fontSize = 13.sp,
+                color = Color.Gray,
+                lineHeight = 18.sp
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // Lista de Opciones
+            val options = listOf(
+                "1 hora" to "1H",
+                "2 horas" to "2H",
+                "Hasta la medianoche" to "MIDNIGHT",
+                "Hasta que se desactive manualmente" to "MANUAL"
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                options.forEach { (label, value) ->
+                    val isSelected = selectedOption == value
+                    Surface(
+                        onClick = { selectedOption = value },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) Color(0xFFF5F5F5) else Color.Transparent,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                label,
+                                modifier = Modifier.weight(1f),
+                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium,
+                                color = if (isSelected) Color.Black else Color.DarkGray
+                            )
+                            if (isSelected) {
+                                Surface(shape = CircleShape, color = Color(0xFF2979FF), modifier = Modifier.size(20.dp)) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text("✓", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(32.dp))
+
+            Button(
+                onClick = { onConfirm(selectedOption) },
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                shape = RoundedCornerShape(27.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2979FF))
+            ) {
+                Text("OK", fontWeight = FontWeight.Black, fontSize = 16.sp)
+            }
+            
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar", color = Color.Gray, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
+
+@Composable
+fun MenuCategory(title: String, content: @Composable () -> Unit) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+            Box(Modifier.width(3.dp).height(16.dp).background(Color(0xFF1976D2)))
+            Spacer(Modifier.width(8.dp))
+            Text(title, fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.DarkGray)
+        }
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column { content() }
+        }
+    }
+}
+
+@Composable
+fun MenuListItem(
+    icon: ImageVector,
+    title: String,
+    badge: String? = null,
+    trailing: @Composable (() -> Unit)? = null,
+    onClick: (() -> Unit)? = null
+) {
+    Surface(
+        onClick = { onClick?.invoke() },
+        color = Color.Transparent,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = Color.DarkGray, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(16.dp))
+            Text(title, modifier = Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            
+            if (badge != null) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Red,
+                    modifier = Modifier.size(20.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(badge, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            
+            if (trailing != null) {
+                trailing()
+            } else {
+                Icon(Icons.Default.KeyboardArrowDown, null, tint = Color.LightGray, modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppsManagementScreen(
+    installedApps: List<Map<String, String>>,
+    rulesManager: RulesManager,
+    syncManager: FirebaseSyncManager,
+    onDismiss: () -> Unit
+) {
+    var selectedTab by remember { mutableStateOf(0) }
+    var searchQuery by remember { mutableStateOf("") }
+    
+    // Estados para Selección
+    var showAppSelector by remember { mutableStateOf(false) }
+    var showDurationSelector by remember { mutableStateOf(false) }
+    var selectorType by remember { mutableStateOf(AppsManagementSelectionType.LIMIT) }
+    var tempSelectedPackages by remember { mutableStateOf(emptyList<String>()) }
+    
+    // Reglas actuales para visualización
+    var currentRules by remember { mutableStateOf(rulesManager.getRules()) }
+    
+    val filteredApps = installedApps.filter { 
+        it["name"]?.contains(searchQuery, ignoreCase = true) == true 
+    }
+
+    // LISTENER DE REGLAS (Para actualizar UI en tiempo real)
+    LaunchedEffect(Unit) {
+        syncManager.listenForRules { updatedRules ->
+            currentRules = updatedRules
+        }
+    }
+
+    if (showAppSelector) {
+        AppSelectionDialog(
+            installedApps = installedApps,
+            onDismiss = { showAppSelector = false },
+            onConfirm = { selected ->
+                tempSelectedPackages = selected
+                showAppSelector = false
+                if (selectorType == AppsManagementSelectionType.LIMIT) {
+                    showDurationSelector = true
+                } else {
+                    // Aplicar cambios directos para ALLOWED o BLOCK
+                    val newRules = currentRules.toMutableList()
+                    selected.forEach { pkg ->
+                        val existingIndex = newRules.indexOfFirst { it.packageName == pkg }
+                        val newRule = when (selectorType) {
+                            AppsManagementSelectionType.ALLOWED -> Rule(pkg, isBlocked = false, isAlwaysAllowed = true)
+                            AppsManagementSelectionType.BLOCK -> Rule(pkg, isBlocked = true, isAlwaysAllowed = false)
+                            else -> Rule(pkg)
+                        }
+                        if (existingIndex != -1) newRules[existingIndex] = newRule else newRules.add(newRule)
+                    }
+                    rulesManager.saveRules(newRules)
+                    syncManager.updateRulesInCloud(newRules)
+                }
+            }
+        )
+    }
+
+    if (showDurationSelector) {
+        DurationSelectionDialog(
+            onDismiss = { showDurationSelector = false },
+            onConfirm = { minutes ->
+                showDurationSelector = false
+                val newRules = currentRules.toMutableList()
+                tempSelectedPackages.forEach { pkg ->
+                    val existingIndex = newRules.indexOfFirst { it.packageName == pkg }
+                    val newRule = Rule(pkg, isBlocked = false, isAlwaysAllowed = false, timeLimitMinutes = minutes)
+                    if (existingIndex != -1) newRules[existingIndex] = newRule else newRules.add(newRule)
+                }
+                rulesManager.saveRules(newRules)
+                syncManager.updateRulesInCloud(newRules)
+                tempSelectedPackages = emptyList()
+            }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Gestión de aplicaciones", fontWeight = FontWeight.Black, fontSize = 20.sp) },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { /* Configuración */ }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Ajustes")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
+        },
+        containerColor = Color(0xFFF8F9FA)
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            // Banner Naranja (Advertencia) - Estético
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                color = Color(0xFFFFF3E0),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFFFB74D).copy(0.3f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Default.Info, null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Concede los permisos en Kiboo Kids",
+                        color = Color(0xFFE65100),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Default.KeyboardArrowDown, null, tint = Color(0xFFFF9800), modifier = Modifier.size(16.dp))
+                }
+            }
+
+            // Pestañas Personalizadas
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .background(Color(0xFFEEEEEE), RoundedCornerShape(24.dp))
+                    .padding(4.dp)
+            ) {
+                val tabs = listOf("Gestión de aplicaci...", "Aplicaciones")
+                tabs.forEachIndexed { index, title ->
+                    val isSelected = selectedTab == index
+                    Surface(
+                        onClick = { selectedTab = index },
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isSelected) Color.White else Color.Transparent,
+                        shadowElevation = if (isSelected) 2.dp else 0.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                title,
+                                color = if (isSelected) Color(0xFF1976D2) else Color.Gray,
+                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            if (selectedTab == 0) {
+                // PESTAÑA GESTIÓN
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // SECCIÓN: Límites de App
+                    val appsWithLimits = currentRules.filter { it.timeLimitMinutes > 0 && !it.isAlwaysAllowed }
+                    ManagementSection(
+                        title = "Límites de App",
+                        description = "Establece límites de tiempo para que las aplicaciones sean inaccesibles tras el uso permitido.",
+                        onAdd = { 
+                            selectorType = AppsManagementSelectionType.LIMIT
+                            showAppSelector = true 
+                        }
+                    ) {
+                        if (appsWithLimits.isEmpty()) {
+                            EmptyStateCard("Límite de tiempo", "⏱️")
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                appsWithLimits.forEach { rule ->
+                                    val appName = installedApps.find { it["packageName"] == rule.packageName }?.get("name") ?: rule.packageName
+                                    PermittedAppItem(name = "$appName (${rule.timeLimitMinutes} min)", iconEmoji = "⏱️")
+                                }
+                            }
+                        }
+                    }
+
+                    // SECCIÓN: Siempre Permitido
+                    val alwaysAllowedApps = currentRules.filter { it.isAlwaysAllowed }
+                    ManagementSection(
+                        title = "Siempre Permitido",
+                        description = "Las aplicaciones en esta lista ignoran los bloqueos y límites de tiempo.",
+                        onAdd = { 
+                            selectorType = AppsManagementSelectionType.ALLOWED
+                            showAppSelector = true 
+                        }
+                    ) {
+                        if (alwaysAllowedApps.isEmpty()) {
+                            EmptyStateCard("Apps permitidas", "✅")
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                alwaysAllowedApps.forEach { rule ->
+                                    val appName = installedApps.find { it["packageName"] == rule.packageName }?.get("name") ?: rule.packageName
+                                    PermittedAppItem(name = appName, iconEmoji = "🌟")
+                                }
+                            }
+                        }
+                    }
+
+                    // SECCIÓN: Bloqueador de aplicaciones
+                    val blockedApps = currentRules.filter { it.isBlocked && !it.isAlwaysAllowed }
+                    ManagementSection(
+                        title = "Bloqueador de aplicaciones",
+                        description = "Bloquea aplicaciones específicas de forma permanente.",
+                        onAdd = { 
+                            selectorType = AppsManagementSelectionType.BLOCK
+                            showAppSelector = true 
+                        }
+                    ) {
+                        if (blockedApps.isEmpty()) {
+                            EmptyStateCard("Reglas de bloqueo", "🛡️")
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                blockedApps.forEach { rule ->
+                                    val appName = installedApps.find { it["packageName"] == rule.packageName }?.get("name") ?: rule.packageName
+                                    PermittedAppItem(name = appName, iconEmoji = "🚫")
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(32.dp))
+                }
+            } else {
+                // PESTAÑA APLICACIONES (LISTA REAL)
+                Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        placeholder = { Text("Buscar aplicación...") },
+                        leadingIcon = { Icon(Icons.Default.Search, null) },
+                        shape = RoundedCornerShape(24.dp),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            containerColor = Color.White,
+                            unfocusedBorderColor = Color.LightGray
+                        )
+                    )
+
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 32.dp)
+                    ) {
+                        items(filteredApps) { app ->
+                            AppRuleItem(app, rulesManager, syncManager)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ManagementSection(
+    title: String,
+    description: String? = null,
+    onAdd: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            TextButton(onClick = onAdd) {
+                Text("Añadir", color = Color(0xFF1976D2), fontWeight = FontWeight.Bold)
+            }
+        }
+        if (description != null) {
+            Text(
+                description,
+                fontSize = 12.sp,
+                color = Color.Gray,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+        }
+        content()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DowntimeScreen(syncManager: FirebaseSyncManager, onDismiss: () -> Unit) {
+    var isActive by remember { mutableStateOf(false) }
+    var schoolScheduleActive by remember { mutableStateOf(false) }
+    var sleepScheduleActive by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Tiempo de inactividad", fontWeight = FontWeight.Black) },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
+        },
+        containerColor = Color(0xFFF8F9FA)
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Spacer(Modifier.height(16.dp))
+
+                // Banner de Advertencia Naranja
+                Surface(
+                    modifier = Modifier.fillMaxWidth().clickable { /* Abrir detalles */ },
+                    color = Color(0xFFFFF3E0),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFFB74D).copy(0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(shape = CircleShape, color = Color(0xFFFF9800), modifier = Modifier.size(24.dp)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("i", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Concede los permisos en Kiboo Kids",
+                            color = Color(0xFFE65100),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(Icons.Default.KeyboardArrowRight, null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+                
+                Text(
+                    "Durante el tiempo de inactividad, solo estarán disponibles las llamadas telefónicas y las aplicaciones que añadas a Siempre permitidas.",
+                    fontSize = 13.sp,
+                    color = Color.Gray,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                // Tarjeta Principal de Configuración
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 1.dp
+                ) {
+                    Column {
+                        // Switch principal
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Activar Tiempo de inactividad",
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Switch(
+                                checked = isActive,
+                                onCheckedChange = { 
+                                    isActive = it
+                                    syncManager.syncDowntimeConfig(mapOf("enabled" to it))
+                                }
+                            )
+                        }
+                        
+                        Divider(color = Color(0xFFF0F0F0))
+
+                        // Horario Escolar
+                        DowntimeItem(
+                            title = "Horario escolar",
+                            details = "08:00 - 15:15, De lunes a viernes",
+                            active = schoolScheduleActive,
+                            onToggle = { 
+                                schoolScheduleActive = it
+                                syncManager.sendCommand(if(it) "DOWNTIME_SCHOOL_START" else "DOWNTIME_SCHOOL_STOP")
+                            }
+                        )
+                        
+                        Divider(color = Color(0xFFF0F0F0))
+
+                        // Hora de dormir
+                        DowntimeItem(
+                            title = "Hora de dormir",
+                            details = "22:00 - 07:00, Todos los días",
+                            active = sleepScheduleActive,
+                            onToggle = { 
+                                sleepScheduleActive = it 
+                                syncManager.sendCommand(if(it) "DOWNTIME_SLEEP_START" else "DOWNTIME_SLEEP_STOP")
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Botón Añadir Horario (Fijo abajo)
+            Button(
+                onClick = { /* Lógica añadir */ },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .height(54.dp),
+                shape = RoundedCornerShape(27.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2979FF))
+            ) {
+                Text("Añadir horario", fontWeight = FontWeight.Black, fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun DowntimeItem(
+    title: String,
+    details: String,
+    active: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Icon(Icons.Default.KeyboardArrowRight, null, tint = Color.LightGray, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("\uD83D\uDEAB", fontSize = 12.sp) // Círculo de prohibido
+                Spacer(Modifier.width(6.dp))
+                Text(details, color = Color.Gray, fontSize = 12.sp)
+            }
+        }
+        Switch(checked = active, onCheckedChange = onToggle)
+    }
+}
+
+enum class AppsManagementSelectionType { LIMIT, ALLOWED, BLOCK }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppSelectionDialog(
+    installedApps: List<Map<String, String>>,
+    onDismiss: () -> Unit,
+    onConfirm: (List<String>) -> Unit
+) {
+    var selectedPackages by remember { mutableStateOf(emptySet<String>()) }
+    var searchQuery by remember { mutableStateOf("") }
+    val filtered = installedApps.filter { it["name"]?.contains(searchQuery, ignoreCase = true) == true }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp),
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            modifier = Modifier.padding(16.dp).fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text("Seleccionar Aplicaciones", fontWeight = FontWeight.Black, fontSize = 18.sp)
+                
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    placeholder = { Text("Buscar...") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    shape = RoundedCornerShape(24.dp)
+                )
+
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(filtered) { app ->
+                        val pkg = app["packageName"] ?: ""
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                selectedPackages = if (pkg in selectedPackages) selectedPackages - pkg else selectedPackages + pkg
+                            }.padding(vertical = 8.dp)
+                        ) {
+                            Checkbox(checked = pkg in selectedPackages, onCheckedChange = {
+                                selectedPackages = if (pkg in selectedPackages) selectedPackages - pkg else selectedPackages + pkg
+                            })
+                            Spacer(Modifier.width(8.dp))
+                            Text(app["name"] ?: pkg, fontSize = 14.sp)
+                        }
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancelar") }
+                    Button(onClick = { onConfirm(selectedPackages.toList()) }) { Text("Siguiente") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DurationSelectionDialog(onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+    var minutes by remember { mutableStateOf(30) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Establecer Límite", fontWeight = FontWeight.Black) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text("Selecciona el tiempo permitido por día:", fontSize = 14.sp, color = Color.Gray)
+                Spacer(Modifier.height(20.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { if (minutes > 15) minutes -= 15 }) { Icon(Icons.Default.KeyboardArrowDown, null) }
+                    Text("${minutes / 60}h ${minutes % 60}m", fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    IconButton(onClick = { minutes += 15 }) { Icon(Icons.Default.Add, null) }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(minutes) }) { Text("Confirmar") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
+}
+
+@Composable
+fun LocationTrackerScreen(syncManager: FirebaseSyncManager) {
+    var deviceLocation by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var locationHistory by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var selectedDate by remember { mutableStateOf(java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(java.util.Date())) }
+
+    LaunchedEffect(Unit) {
+        syncManager.listenForLocation { lat, lng -> deviceLocation = Pair(lat, lng) }
+    }
+
+    LaunchedEffect(selectedDate) {
+        syncManager.listenForLocationHistory(selectedDate) { history -> locationHistory = history }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        // Mapa Placeholder Interactivo
+        Surface(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFFE3F2FD),
+            border = BorderStroke(1.dp, Color(0xFF1976D2).copy(0.2f))
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Map, null, modifier = Modifier.size(64.dp), tint = Color(0xFF1976D2).copy(0.3f))
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Mapa Tiempo Real", fontWeight = FontWeight.Black, color = Color(0xFF1976D2))
+                    deviceLocation?.let {
+                        Text("${it.first}, ${it.second}", fontSize = 12.sp, color = Color.Gray)
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Histórico de Rutas
+        MenuCategory("Histórico de Rutas") {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Directions, null, tint = Color(0xFF1976D2))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Ruta del día", fontWeight = FontWeight.Bold)
+                    Text("${locationHistory.size} puntos registrados", fontSize = 12.sp, color = Color.Gray)
+                }
+                Button(onClick = { /* Abrir Diálogo de Fecha */ }, shape = RoundedCornerShape(12.dp)) {
+                    Text("Cambiar Fecha")
+                }
+            }
+        }
+        
+        Spacer(Modifier.height(16.dp))
+        
+        Button(
+            onClick = { /* Abrir en Maps Externo */ },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text("Ver en Google Maps")
+        }
+    }
+}
+}
+
+@Composable
+fun LocationHistoryItem(item: Map<String, Any>) {
+    val lat = item["lat"] as? Double ?: 0.0
+    val lng = item["lng"] as? Double ?: 0.0
+    val time = item["timestamp"] as? String ?: "Desconocido"
+    
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(8.dp).background(Color(0xFF1976D2), CircleShape)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text("Ubicación: $lat, $lng", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text("Hora: $time", fontSize = 11.sp, color = Color.Gray)
+        }
+    }
+}
+
+enum class AppsManagementSelectionType { LIMIT, ALLOWED, BLOCK }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppSelectionDialog(
+    installedApps: List<Map<String, String>>,
+    onDismiss: () -> Unit,
+    onConfirm: (List<String>) -> Unit
+) {
+    var selectedPackages by remember { mutableStateOf(emptySet<String>()) }
+    var searchQuery by remember { mutableStateOf("") }
+    val filtered = installedApps.filter { it["name"]?.contains(searchQuery, ignoreCase = true) == true }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp),
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            modifier = Modifier.padding(16.dp).fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text("Seleccionar Aplicaciones", fontWeight = FontWeight.Black, fontSize = 18.sp)
+                
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    placeholder = { Text("Buscar...") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    shape = RoundedCornerShape(24.dp)
+                )
+
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(filtered) { app ->
+                        val pkg = app["packageName"] ?: ""
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                selectedPackages = if (pkg in selectedPackages) selectedPackages - pkg else selectedPackages + pkg
+                            }.padding(vertical = 8.dp)
+                        ) {
+                            Checkbox(checked = pkg in selectedPackages, onCheckedChange = {
+                                selectedPackages = if (pkg in selectedPackages) selectedPackages - pkg else selectedPackages + pkg
+                            })
+                            Spacer(Modifier.width(8.dp))
+                            Text(app["name"] ?: pkg, fontSize = 14.sp)
+                        }
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancelar") }
+                    Button(onClick = { onConfirm(selectedPackages.toList()) }) { Text("Siguiente") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DurationSelectionDialog(onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+    var minutes by remember { mutableStateOf(30) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Establecer Límite", fontWeight = FontWeight.Black) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text("Selecciona el tiempo permitido por día:", fontSize = 14.sp, color = Color.Gray)
+                Spacer(Modifier.height(20.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { if (minutes > 15) minutes -= 15 }) { Icon(androidx.compose.material.icons.Icons.Default.KeyboardArrowDown, null) }
+                    Text("${minutes / 60}h ${minutes % 60}m", fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    IconButton(onClick = { minutes += 15 }) { Icon(androidx.compose.material.icons.Icons.Default.Add, null) }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(minutes) }) { Text("Confirmar") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
+}
+
+@Composable
+fun ManagementSection(
+    title: String,
+    description: String? = null,
+    onAdd: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            TextButton(onClick = onAdd) {
+                Text("Añadir", color = Color(0xFF1976D2), fontWeight = FontWeight.Bold)
+            }
+        }
+        if (description != null) {
+            Text(
+                description,
+                fontSize = 12.sp,
+                color = Color.Gray,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+        }
+        content()
+    }
+}
+
+@Composable
+fun EmptyStateCard(label: String, emoji: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(emoji, fontSize = 48.sp)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "No hay $label configurados.",
+                color = Color.LightGray,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun PermittedAppItem(name: String, iconEmoji: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFFF5F5F5),
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(iconEmoji, fontSize = 20.sp)
+                }
+            }
+            Spacer(Modifier.width(16.dp))
+            Text(name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Icon(androidx.compose.material.icons.Icons.Default.KeyboardArrowDown, null, tint = Color.LightGray, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
+fun MenuCategory(title: String, content: @Composable () -> Unit) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+            Box(Modifier.width(3.dp).height(16.dp).background(Color(0xFF1976D2)))
+            Spacer(Modifier.width(8.dp))
+            Text(title, fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.DarkGray)
+        }
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column { content() }
+        }
+    }
+}
+
+@Composable
+fun MenuListItem(
+    icon: ImageVector,
+    title: String,
+    badge: String? = null,
+    trailing: @Composable (() -> Unit)? = null,
+    onClick: (() -> Unit)? = null
+) {
+    Surface(
+        onClick = { onClick?.invoke() },
+        color = Color.Transparent,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = Color.DarkGray, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(16.dp))
+            Text(title, modifier = Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            
+            if (badge != null) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Red,
+                    modifier = Modifier.size(20.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(badge, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            
+            if (trailing != null) {
+                trailing()
+            } else if (onClick != null) {
+                Icon(androidx.compose.material.icons.Icons.Default.KeyboardArrowRight, null, tint = Color.LightGray, modifier = Modifier.size(20.dp))
+            }
+        }
+    }
 }

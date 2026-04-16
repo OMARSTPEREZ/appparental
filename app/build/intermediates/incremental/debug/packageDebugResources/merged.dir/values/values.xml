@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="accessibility_service_description">Protección avanzada de Kiboo para bloquear aplicaciones y filtrar contenido web peligroso.</string>
     <string name="app_name">Kiboo</string>
     <string name="default_web_client_id">483861434770-287uo9k38v6u1mjgh5o92bpd9marb7cn.apps.googleusercontent.com</string>
     <string name="gcm_defaultSenderId" translatable="false">483861434770</string>

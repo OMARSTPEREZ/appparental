@@ -20,9 +20,12 @@ import com.example.parentalcontrol.models.Rule
 import com.example.parentalcontrol.utils.FirebaseSyncManager
 import com.example.parentalcontrol.utils.RulesManager
 import com.example.parentalcontrol.utils.CameraStreamer
+import com.example.parentalcontrol.utils.AudioStreamer
+import com.example.parentalcontrol.utils.ScreenStreamer
 import com.google.android.gms.location.*
 import androidx.lifecycle.LifecycleService
 import com.example.parentalcontrol.BlockActivity
+import com.example.parentalcontrol.ScreenCaptureActivity
 import java.util.*
 
 class MonitoringService : LifecycleService() {
@@ -34,6 +37,8 @@ class MonitoringService : LifecycleService() {
     private lateinit var rulesManager: RulesManager
     private lateinit var firebaseSyncManager: FirebaseSyncManager
     private lateinit var cameraStreamer: CameraStreamer
+    private lateinit var audioStreamer: AudioStreamer
+    private lateinit var screenStreamer: ScreenStreamer
 
     private val appInstallReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -75,11 +80,25 @@ class MonitoringService : LifecycleService() {
             }
         }
         
+        
         cameraStreamer = CameraStreamer(this, this, firebaseSyncManager)
+        audioStreamer = AudioStreamer(firebaseSyncManager)
+        screenStreamer = ScreenStreamer(this, firebaseSyncManager)
+        
         firebaseSyncManager.listenForCommands { cmd ->
             when (cmd) {
                 "START_CAMERA" -> cameraStreamer.startStream()
                 "STOP_CAMERA" -> cameraStreamer.stopStream()
+                "START_AUDIO" -> audioStreamer.startStreaming()
+                "STOP_AUDIO" -> audioStreamer.stopStreaming()
+                "START_SCREEN" -> {
+                    // Start activity to get token
+                    val intent = Intent(this, ScreenCaptureActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                }
+                "STOP_SCREEN" -> screenStreamer.stopStreaming()
             }
         }
 
@@ -116,6 +135,15 @@ class MonitoringService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        
+        if (intent?.action == "START_SCREEN_STREAM") {
+            val resultCode = intent.getIntExtra("RESULT_CODE", 0)
+            val data = intent.getParcelableExtra<Intent>("DATA")
+            if (data != null) {
+                screenStreamer.startStreaming(resultCode, data)
+            }
+        }
+        
         syncInstalledApps()
         startPeriodicSync()
         return START_STICKY
@@ -144,6 +172,7 @@ class MonitoringService : LifecycleService() {
                 syncCounter++
                 if (syncCounter >= 30) { // Every ~60 seconds (30 * 2s)
                     syncDeviceStatus()
+                    syncUsageTelemetry()
                     syncCounter = 0
                 }
             }
@@ -158,6 +187,51 @@ class MonitoringService : LifecycleService() {
         val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
         
         firebaseSyncManager.syncDeviceStatus(batteryPct, isGpsEnabled)
+    }
+
+    private fun syncUsageTelemetry() {
+        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val time = System.currentTimeMillis()
+        
+        // Empezar cuenta de hoy desde la medianoche
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startTime = calendar.timeInMillis
+        
+        val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, time)
+        if (stats.isNullOrEmpty()) return
+        
+        val pm = packageManager
+        var totalDailyTimeMs = 0L
+        
+        val appsUsage = stats.mapNotNull { usage ->
+            val totalTime = usage.totalTimeInForeground
+            // Descartar uso vacío y el launcher por defecto
+            if (totalTime > 0) {
+                totalDailyTimeMs += totalTime
+                try {
+                    val appInfo = pm.getApplicationInfo(usage.packageName, 0)
+                    // Filtro crudo pero efectivo para ignorar apps núcleo del sistema
+                    val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                    val isWhiteListedSysApp = usage.packageName.contains("youtube") || usage.packageName.contains("chrome")
+                    
+                    if (!isSystemApp || isWhiteListedSysApp) {
+                        val appName = pm.getApplicationLabel(appInfo).toString()
+                        mapOf(
+                            "packageName" to usage.packageName,
+                            "appName" to appName,
+                            "timeMs" to totalTime
+                        )
+                    } else null
+                } catch (e: Exception) { null }
+            } else null
+        }.sortedByDescending { it["timeMs"] as Long }.take(15) // Top 15 Apps
+        
+        firebaseSyncManager.syncUsageStats(totalDailyTimeMs, appsUsage)
     }
 
     private fun checkForegroundApp() {

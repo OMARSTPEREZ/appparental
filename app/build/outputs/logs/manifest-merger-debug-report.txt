@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:2:1-77:12
-INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:2:1-77:12
-INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:2:1-77:12
-INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:2:1-77:12
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:2:1-118:12
+INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:2:1-118:12
+INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:2:1-118:12
+INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:2:1-118:12
 MERGED from [com.google.firebase:firebase-database-ktx:20.3.0] C:\Users\OMAR PEREZ\.gradle\caches\8.13\transforms\72b59a4aa72fc865081695e8eda7748f\transformed\firebase-database-ktx-20.3.0\AndroidManifest.xml:2:1-18:12
 MERGED from [com.google.firebase:firebase-messaging-ktx:23.4.0] C:\Users\OMAR PEREZ\.gradle\caches\8.13\transforms\2f0d85ae224c8ef75192550cd2c47ff6\transformed\firebase-messaging-ktx-23.4.0\AndroidManifest.xml:17:1-32:12
 MERGED from [androidx.compose.material3:material3:1.1.1] C:\Users\OMAR PEREZ\.gradle\caches\8.13\transforms\da73d4b712c8c00893d767fce32dedfa\transformed\material3-1.1.1\AndroidManifest.xml:17:1-22:12
@@ -166,9 +166,51 @@ uses-permission#android.permission.FOREGROUND_SERVICE_CAMERA
 ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:15:5-84
 	android:name
 		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:15:22-81
+uses-permission#android.permission.RECEIVE_BOOT_COMPLETED
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:16:5-81
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:16:22-78
+uses-permission#android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:17:5-95
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:17:22-92
+uses-permission#android.permission.RECORD_AUDIO
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:18:5-71
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:18:22-68
+uses-permission#android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:19:5-94
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:19:22-91
+uses-permission#android.permission.READ_CONTACTS
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:22:5-72
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:22:22-69
+uses-permission#android.permission.READ_SMS
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:23:5-67
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:23:22-64
+uses-permission#android.permission.RECEIVE_SMS
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:24:5-70
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:24:22-67
+uses-permission#android.permission.READ_EXTERNAL_STORAGE
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:25:5-107
+	android:maxSdkVersion
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:25:78-104
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:25:22-77
+uses-permission#android.permission.READ_MEDIA_IMAGES
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:26:5-76
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:26:22-73
+uses-permission#android.permission.READ_MEDIA_VIDEO
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:27:5-75
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:27:22-72
 application
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:17:5-75:19
-INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:17:5-75:19
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:29:5-116:19
+INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:29:5-116:19
 MERGED from [com.google.firebase:firebase-database-ktx:20.3.0] C:\Users\OMAR PEREZ\.gradle\caches\8.13\transforms\72b59a4aa72fc865081695e8eda7748f\transformed\firebase-database-ktx-20.3.0\AndroidManifest.xml:8:5-16:19
 MERGED from [com.google.firebase:firebase-database-ktx:20.3.0] C:\Users\OMAR PEREZ\.gradle\caches\8.13\transforms\72b59a4aa72fc865081695e8eda7748f\transformed\firebase-database-ktx-20.3.0\AndroidManifest.xml:8:5-16:19
 MERGED from [com.google.firebase:firebase-messaging-ktx:23.4.0] C:\Users\OMAR PEREZ\.gradle\caches\8.13\transforms\2f0d85ae224c8ef75192550cd2c47ff6\transformed\firebase-messaging-ktx-23.4.0\AndroidManifest.xml:22:5-30:19
@@ -238,97 +280,145 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\OMAR PEREZ\.gradle
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.12.0] C:\Users\OMAR PEREZ\.gradle\caches\8.13\transforms\8a89edf7f6ecfd60b92b622390ff88bf\transformed\core-1.12.0\AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:24:9-35
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:36:9-35
 	android:label
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:22:9-41
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:34:9-41
 	android:fullBackupContent
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:20:9-54
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:32:9-54
 	android:roundIcon
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:23:9-54
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:35:9-54
 	tools:targetApi
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:26:9-29
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:38:9-29
 	android:icon
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:21:9-43
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:33:9-43
 	android:allowBackup
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:18:9-35
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:30:9-35
 	android:theme
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:25:9-53
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:37:9-53
 	android:dataExtractionRules
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:19:9-65
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:31:9-65
 activity#com.example.parentalcontrol.MainActivity
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:28:9-36:20
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:40:9-48:20
 	android:exported
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:30:13-36
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:42:13-36
 	android:theme
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:31:13-57
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:43:13-57
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:29:13-41
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:41:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:32:13-35:29
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:44:13-47:29
 action#android.intent.action.MAIN
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:33:17-69
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:45:17-69
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:33:25-66
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:45:25-66
 category#android.intent.category.LAUNCHER
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:34:17-77
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:46:17-77
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:34:27-74
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:46:27-74
 activity#com.example.parentalcontrol.BlockActivity
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:38:9-41:60
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:50:9-53:60
 	android:exported
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:40:13-37
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:52:13-37
 	android:theme
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:41:13-57
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:53:13-57
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:39:13-42
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:51:13-42
+activity#com.example.parentalcontrol.ScreenCaptureActivity
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:55:9-58:75
+	android:exported
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:57:13-37
+	android:theme
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:58:13-72
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:56:13-50
 service#com.example.parentalcontrol.services.MonitoringService
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:43:9-47:74
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:60:9-64:101
 	android:enabled
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:45:13-35
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:62:13-35
 	android:exported
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:46:13-37
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:63:13-37
 	android:foregroundServiceType
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:47:13-71
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:64:13-98
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:44:13-55
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:61:13-55
 service#com.example.parentalcontrol.services.NotificationReaderService
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:50:9-58:19
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:67:9-75:19
 	android:label
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:52:13-59
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:69:13-59
 	android:exported
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:54:13-36
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:71:13-36
 	android:permission
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:53:13-87
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:70:13-87
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:51:13-63
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:68:13-63
 intent-filter#action:name:android.service.notification.NotificationListenerService
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:55:13-57:29
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:72:13-74:29
 action#android.service.notification.NotificationListenerService
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:56:17-99
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:73:17-99
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:56:25-96
-receiver#com.example.parentalcontrol.utils.AdminReceiver
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:62:9-73:20
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:73:25-96
+service#com.example.parentalcontrol.services.KibooAccessibilityService
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:78:9-89:19
 	android:label
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:64:13-54
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:80:13-70
 	android:exported
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:66:13-36
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:82:13-37
 	android:permission
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:65:13-70
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:81:13-79
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:63:13-48
-meta-data#android.app.device_admin
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:67:13-69:65
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:79:13-63
+intent-filter#action:name:android.view.AccessibilityService
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:83:13-85:29
+action#android.view.AccessibilityService
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:84:17-76
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:84:25-73
+meta-data#android.accessibilityservice
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:86:13-88:72
 	android:resource
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:69:17-62
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:88:17-69
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:68:17-56
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:87:17-60
+receiver#com.example.parentalcontrol.utils.AdminReceiver
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:92:9-103:20
+	android:label
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:94:13-54
+	android:exported
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:96:13-36
+	android:permission
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:95:13-70
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:93:13-48
+meta-data#android.app.device_admin
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:97:13-99:65
+	android:resource
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:99:17-62
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:98:17-56
 intent-filter#action:name:android.app.action.DEVICE_ADMIN_ENABLED
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:70:13-72:29
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:100:13-102:29
 action#android.app.action.DEVICE_ADMIN_ENABLED
-ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:71:17-82
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:101:17-82
 	android:name
-		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:71:25-79
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:101:25-79
+receiver#com.example.parentalcontrol.utils.BootReceiver
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:106:9-114:20
+	android:enabled
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:108:13-35
+	android:exported
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:109:13-36
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:107:13-47
+intent-filter#action:name:android.intent.action.BOOT_COMPLETED+action:name:android.intent.action.QUICKBOOT_POWERON
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:110:13-113:29
+action#android.intent.action.BOOT_COMPLETED
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:111:17-79
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:111:25-76
+action#android.intent.action.QUICKBOOT_POWERON
+ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:112:17-82
+	android:name
+		ADDED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml:112:25-79
 uses-sdk
 INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from C:\Users\OMAR PEREZ\.gemini\antigravity\scratch\aparental\app\src\main\AndroidManifest.xml

@@ -5,27 +5,85 @@ import com.google.firebase.database.*
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 
-class FirebaseSyncManager(private val childId: String) {
-    private val database = Firebase.database.reference.child("children").child(childId)
+class FirebaseSyncManager(private var childId: String) {
+    private val database = Firebase.database.reference
+    private var childRef = database.child("children").child(childId)
+
+    /**
+     * Actualiza el childId y las referencias internas (usado tras vinculación o cambio en selector)
+     */
+    fun updateChildId(newChildId: String) {
+        this.childId = newChildId
+        this.childRef = database.child("children").child(newChildId)
+    }
+
+    fun getChildId(): String = childId
+
+    // --- Linked Devices Management ---
+    fun registerDeviceToParent(parentUid: String, childId: String, name: String, avatar: String) {
+        val deviceData = mapOf(
+            "childId" to childId,
+            "name" to name,
+            "avatar" to avatar
+        )
+        database.child("parents").child(parentUid).child("devices").child(childId).setValue(deviceData)
+    }
+
+    fun listenForLinkedDevices(parentUid: String, onUpdate: (List<Map<String, String>>) -> Unit) {
+        database.child("parents").child(parentUid).child("devices").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val devices = mutableListOf<Map<String, String>>()
+                for (deviceSnap in snapshot.children) {
+                    val childId = deviceSnap.child("childId").getValue(String::class.java) ?: ""
+                    val name = deviceSnap.child("name").getValue(String::class.java) ?: ""
+                    val avatar = deviceSnap.child("avatar").getValue(String::class.java) ?: "🤖"
+                    if (childId.isNotEmpty()) {
+                        devices.add(mapOf("childId" to childId, "name" to name, "avatar" to avatar))
+                    }
+                }
+                onUpdate(devices)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
 
     fun syncLocation(lat: Double, lng: Double) {
+        val timestamp = System.currentTimeMillis()
         val locationData = mapOf(
             "latitude" to lat,
             "longitude" to lng,
-            "timestamp" to System.currentTimeMillis()
+            "timestamp" to timestamp
         )
-        database.child("location").setValue(locationData)
+        // Última ubicación conocida
+        childRef.child("location").setValue(locationData)
+        
+        // Histórico para rutas (agrupado por día)
+        val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault())
+        val dateKey = sdf.format(java.util.Date(timestamp))
+        childRef.child("location_history").child(dateKey).push().setValue(locationData)
+    }
+
+    fun listenForLocationHistory(date: String, onUpdate: (List<Map<String, Any>>) -> Unit) {
+        childRef.child("location_history").child(date).addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val history = snapshot.children.mapNotNull { it.value as? Map<String, Any> }
+                onUpdate(history)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
     fun listenForRules(onRulesUpdated: (List<Rule>) -> Unit) {
-        database.child("rules").addValueEventListener(object : ValueEventListener {
+        childRef.child("rules").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val rules = mutableListOf<Rule>()
                 for (ruleSnap in snapshot.children) {
                     val packageName = ruleSnap.key ?: continue
                     val isBlocked = ruleSnap.child("isBlocked").getValue(Boolean::class.java) ?: false
                     val isMonitored = ruleSnap.child("isMonitored").getValue(Boolean::class.java) ?: false
-                    rules.add(Rule(packageName, isBlocked, isMonitored))
+                    val isAlwaysAllowed = ruleSnap.child("isAlwaysAllowed").getValue(Boolean::class.java) ?: false
+                    val timeLimit = ruleSnap.child("timeLimitMinutes").getValue(Int::class.java) ?: -1
+                    rules.add(Rule(packageName, isBlocked, isMonitored, isAlwaysAllowed, timeLimit))
                 }
                 onRulesUpdated(rules)
             }
@@ -39,9 +97,11 @@ class FirebaseSyncManager(private val childId: String) {
     fun updateRulesInCloud(rules: List<Rule>) {
         val rulesMap = rules.associate { it.packageName to mapOf(
             "isBlocked" to it.isBlocked,
-            "isMonitored" to it.isMonitored
+            "isMonitored" to it.isMonitored,
+            "isAlwaysAllowed" to it.isAlwaysAllowed,
+            "timeLimitMinutes" to it.timeLimitMinutes
         ) }
-        database.child("rules").updateChildren(rulesMap)
+        childRef.child("rules").updateChildren(rulesMap)
     }
 
     fun syncInstalledApps(apps: List<Map<String, String>>) {
@@ -161,6 +221,151 @@ class FirebaseSyncManager(private val childId: String) {
                 val battery = snapshot.child("battery").getValue(Int::class.java) ?: -1
                 val gpsEnabled = snapshot.child("gpsEnabled").getValue(Boolean::class.java) ?: false
                 onStatusUpdate(battery, gpsEnabled)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    // --- Admin PIN Sync ---
+    fun syncAdminPin(pin: String) {
+        database.child("admin_pin").setValue(pin)
+    }
+
+    fun listenForAdminPin(onPinUpdate: (String) -> Unit) {
+        database.child("admin_pin").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val pin = snapshot.getValue(String::class.java)
+                if (pin != null) onPinUpdate(pin)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    // --- Child Profile Sync ---
+    fun syncChildProfile(name: String, avatarBase64: String, birthDate: Long, age: Int) {
+        val profileData = mapOf(
+            "name" to name,
+            "avatar" to avatarBase64,
+            "birthDate" to birthDate,
+            "age" to age,
+            "lastUpdate" to System.currentTimeMillis()
+        )
+        database.child("profile").setValue(profileData)
+    }
+
+    fun listenForChildProfile(onProfileUpdate: (String, String, Int) -> Unit) {
+        database.child("profile").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val name = snapshot.child("name").getValue(String::class.java) ?: ""
+                val avatar = snapshot.child("avatar").getValue(String::class.java) ?: "🤖"
+                val age = snapshot.child("age").getValue(Int::class.java) ?: 0
+                onProfileUpdate(name, avatar, age)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    // --- Usage Stats Sync (Tiempo en Pantalla) ---
+    fun syncUsageStats(totalTimeMs: Long, appsUsage: List<Map<String, Any>>) {
+        val data = mapOf(
+            "totalTimeMs" to totalTimeMs,
+            "apps" to appsUsage,
+            "lastUpdate" to System.currentTimeMillis()
+        )
+        database.child("usage_stats").setValue(data)
+    }
+
+    fun listenForUsageStats(onUpdate: (Long, List<Map<String, Any>>) -> Unit) {
+        database.child("usage_stats").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val totalTimeMs = snapshot.child("totalTimeMs").getValue(Long::class.java) ?: 0L
+                val apps = snapshot.child("apps").children.mapNotNull {
+                    it.value as? Map<String, Any>
+                }
+                onUpdate(totalTimeMs, apps)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    // --- Screen Mirroring Sync ---
+    fun syncScreenFrame(base64Frame: String) {
+        database.child("screen_frame").setValue(base64Frame)
+    }
+
+    fun listenForScreenFrame(onFrame: (String) -> Unit) {
+        database.child("screen_frame").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val frame = snapshot.getValue(String::class.java)
+                if (frame != null) onFrame(frame)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    // --- Audio Monitoring Sync ---
+    fun syncAudioChunk(base64Audio: String) {
+        database.child("audio_chunk").setValue(base64Audio)
+    }
+
+    fun listenForAudioChunk(onChunk: (String) -> Unit) {
+        database.child("audio_chunk").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val chunk = snapshot.getValue(String::class.java)
+                if (chunk != null) onChunk(chunk)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    // --- Pairing Code Logic (NEW) ---
+    fun generatePairingCode(parentUid: String, onResult: (String?) -> Unit) {
+        val allowedChars = ('A'..'Z') + ('0'..'9')
+        val code = (1..8).map { allowedChars.random() }.joinToString("")
+        val expiryTime = System.currentTimeMillis() + (10 * 60 * 1000L) // 10 Minutos
+        val pairingData = mapOf(
+            "parentUid" to parentUid,
+            "expiresAt" to expiryTime
+        )
+        
+        val rootRef = com.google.firebase.database.FirebaseDatabase.getInstance().reference
+        rootRef.child("pairing_codes").child(code).setValue(pairingData)
+        // Se ejecuta sincrónicamente. Firebase subirá la data en segundo plano
+        onResult(code)
+    }
+
+    fun linkWithCode(code: String, onResult: (String?) -> Unit) {
+        val rootRef = com.google.firebase.database.FirebaseDatabase.getInstance().reference
+        val upperCode = code.uppercase().replace(" ", "") // Limpiar formato
+        rootRef.child("pairing_codes").child(upperCode).addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val parentUid = snapshot.child("parentUid").getValue(String::class.java)
+                val expiresAt = snapshot.child("expiresAt").getValue(Long::class.java) ?: 0L
+                
+                if (parentUid != null && System.currentTimeMillis() < expiresAt) {
+                    // Limpiar código usado y retornar UID del padre
+                    snapshot.ref.removeValue()
+                    onResult(parentUid)
+                } else {
+                    onResult(null)
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {
+                onResult(null)
+            }
+        })
+    }
+
+    // --- Downtime Sync ---
+    fun syncDowntimeConfig(config: Map<String, Any>) {
+        childRef.child("downtime_config").setValue(config)
+    }
+
+    fun listenForDowntimeConfig(onUpdate: (Map<String, Any>) -> Unit) {
+        childRef.child("downtime_config").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val config = snapshot.value as? Map<String, Any> ?: emptyMap()
+                onUpdate(config)
             }
             override fun onCancelled(error: DatabaseError) {}
         })

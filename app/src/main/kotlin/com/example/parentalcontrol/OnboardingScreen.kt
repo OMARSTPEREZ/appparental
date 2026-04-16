@@ -22,7 +22,8 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun OnboardingScreen(
     onRegisterClick: () -> Unit,
-    onGoogleSignInClick: () -> Unit
+    onGoogleSignInClick: () -> Unit,
+    onChildLoginClick: () -> Unit
 ) {
     // Definición de colores según el mockup
     val backgroundGradient = Brush.verticalGradient(
@@ -36,6 +37,33 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(backgroundGradient)
     ) {
+        // Botón de Acceso para el Hijo (Arriba Izquierda)
+        TextButton(
+            onClick = onChildLoginClick,
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(16.dp)
+                .align(Alignment.TopStart)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFE91E63).copy(alpha = 0.1f),
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("👦", fontSize = 16.sp)
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Iniciar sesión como hijo", 
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF6D4C41)
+                )
+            }
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()

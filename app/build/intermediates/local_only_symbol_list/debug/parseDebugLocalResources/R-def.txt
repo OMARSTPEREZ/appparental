@@ -5,6 +5,7 @@ drawable img_floating_icons
 drawable img_robot
 mipmap ic_launcher
 mipmap ic_launcher_round
+string accessibility_service_description
 string app_name
 string default_web_client_id
 string gcm_defaultSenderId
@@ -14,6 +15,7 @@ string google_crash_reporting_api_key
 string google_storage_bucket
 string project_id
 style Theme.ParentalControl
+xml accessibility_service_config
 xml backup_rules
 xml data_extraction_rules
 xml device_admin_policies
