@@ -1,38 +1,38 @@
 [
     {
+        "merged": "com.example.parentalcontrol.app-debug-5:/drawable_img_floating_icons.png.flat",
+        "source": "com.example.parentalcontrol.app-main-7:/drawable/img_floating_icons.png"
+    },
+    {
         "merged": "com.example.parentalcontrol.app-debug-5:/xml_accessibility_service_config.xml.flat",
         "source": "com.example.parentalcontrol.app-main-7:/xml/accessibility_service_config.xml"
     },
     {
-        "merged": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-debug-5:\\xml_data_extraction_rules.xml.flat",
-        "source": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-main-7:\\xml\\data_extraction_rules.xml"
+        "merged": "com.example.parentalcontrol.app-debug-5:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "com.example.parentalcontrol.app-main-7:/mipmap-xhdpi/ic_launcher_round.png"
     },
     {
-        "merged": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-debug-5:\\mipmap-xhdpi_ic_launcher_round.png.flat",
-        "source": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-main-7:\\mipmap-xhdpi\\ic_launcher_round.png"
+        "merged": "com.example.parentalcontrol.app-debug-5:/xml_device_admin_policies.xml.flat",
+        "source": "com.example.parentalcontrol.app-main-7:/xml/device_admin_policies.xml"
     },
     {
-        "merged": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-debug-5:\\drawable_img_robot.png.flat",
-        "source": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-main-7:\\drawable\\img_robot.png"
+        "merged": "com.example.parentalcontrol.app-debug-5:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.example.parentalcontrol.app-main-7:/mipmap-xhdpi/ic_launcher.png"
     },
     {
-        "merged": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-debug-5:\\drawable_ic_google.png.flat",
-        "source": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-main-7:\\drawable\\ic_google.png"
+        "merged": "com.example.parentalcontrol.app-debug-5:/drawable_img_robot.png.flat",
+        "source": "com.example.parentalcontrol.app-main-7:/drawable/img_robot.png"
     },
     {
-        "merged": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-debug-5:\\drawable_img_floating_icons.png.flat",
-        "source": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-main-7:\\drawable\\img_floating_icons.png"
+        "merged": "com.example.parentalcontrol.app-debug-5:/drawable_ic_google.png.flat",
+        "source": "com.example.parentalcontrol.app-main-7:/drawable/ic_google.png"
     },
     {
-        "merged": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-debug-5:\\xml_device_admin_policies.xml.flat",
-        "source": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-main-7:\\xml\\device_admin_policies.xml"
+        "merged": "com.example.parentalcontrol.app-debug-5:/xml_data_extraction_rules.xml.flat",
+        "source": "com.example.parentalcontrol.app-main-7:/xml/data_extraction_rules.xml"
     },
     {
-        "merged": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-debug-5:\\mipmap-xhdpi_ic_launcher.png.flat",
-        "source": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-main-7:\\mipmap-xhdpi\\ic_launcher.png"
-    },
-    {
-        "merged": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-debug-5:\\xml_backup_rules.xml.flat",
-        "source": "C:\\Users\\OMAR PEREZ\\.gradle\\daemon\\8.13\\com.example.parentalcontrol.app-main-7:\\xml\\backup_rules.xml"
+        "merged": "com.example.parentalcontrol.app-debug-5:/xml_backup_rules.xml.flat",
+        "source": "com.example.parentalcontrol.app-main-7:/xml/backup_rules.xml"
     }
 ]

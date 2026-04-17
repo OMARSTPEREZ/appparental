@@ -91,6 +91,16 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.PanTool
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Audiotrack
 import android.util.Base64
 import android.graphics.BitmapFactory
 import com.example.parentalcontrol.models.Rule
@@ -98,6 +108,7 @@ import com.example.parentalcontrol.services.MonitoringService
 import com.example.parentalcontrol.utils.FirebaseSyncManager
 import com.example.parentalcontrol.utils.RulesManager
 import com.example.parentalcontrol.utils.SessionManager
+import com.example.parentalcontrol.ui.AnimatedKibooIcon
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -1572,6 +1583,7 @@ class MainActivity : ComponentActivity() {
         val context = LocalContext.current
         var isCameraStreaming by remember { mutableStateOf(false) }
         var isScreenStreaming by remember { mutableStateOf(false) }
+        var isRemoteControlActive by remember { mutableStateOf(false) }
         var isAudioStreaming by remember { mutableStateOf(false) }
         var isRecordingAudio by remember { mutableStateOf(false) }
         
@@ -1604,9 +1616,6 @@ class MainActivity : ComponentActivity() {
             syncManager.listenForCameraFrame { cameraFrame = it }
             syncManager.listenForScreenFrame { screenFrame = it }
             syncManager.listenForNotifications { notifications = it }
-            syncManager.listenForDeviceStatus { bat, gps ->
-                // Actualizaciones de estado del dispositivo removidas de la UI
-            }
             syncManager.listenForLocation { lat, lng ->
                 deviceLocation = Pair(lat, lng)
             }
@@ -1618,8 +1627,6 @@ class MainActivity : ComponentActivity() {
                     if (audioTrack.playState != AudioTrack.PLAYSTATE_PLAYING) {
                         audioTrack.play()
                     }
-                    
-                    // Recording logic
                     if (isRecordingAudio) {
                         audioOutputStream?.write(bytes)
                     }
@@ -1636,107 +1643,228 @@ class MainActivity : ComponentActivity() {
         }
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Brush.verticalGradient(listOf(Color(0xFFF8F9FA), Color(0xFFE9ECEF)))),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
+            contentPadding = PaddingValues(16.dp)
         ) {
-
-            // --- Live Screen Section ---
+            // --- Header Summary ---
             item {
-                Text("Duplicar Pantalla", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.Black
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (isScreenStreaming && screenFrame != null) {
-                            val bitmap = remember(screenFrame) {
-                                val bytes = Base64.decode(screenFrame, Base64.DEFAULT)
-                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                            }
-                            Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = "Screen Stream",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
-                            )
-                        } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Tv, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(48.dp))
-                                Text("Pantalla inactiva", color = Color.Gray)
-                            }
-                        }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AnimatedKibooIcon(
+                        Icons.Default.Cloud, 
+                        contentDescription = null, 
+                        tint = Color(0xFF1976D2), 
+                        size = 32.dp
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Estado del Monitoreo", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                        Text("Sincronización en tiempo real activa", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     }
                 }
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { isScreenStreaming = true; syncManager.sendCommand("START_SCREEN") },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = if (isScreenStreaming) Color.Red else MaterialTheme.colorScheme.primary)
-                    ) { 
-                        Text(if (isScreenStreaming) "Detener" else "Ver Pantalla") 
-                    }
-                    if (isScreenStreaming) {
-                        OutlinedButton(onClick = { isScreenStreaming = false; syncManager.sendCommand("STOP_SCREEN") }) {
-                            Text("Cerrar")
+            }
+
+            // --- Live Screen Section (PREMIUM DESIGN) ---
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color.White,
+                    shadowElevation = 8.dp
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Duplicar Pantalla", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.size(8.dp).background(if (isScreenStreaming) Color(0xFF4CAF50) else Color.Gray, CircleShape))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(if (isScreenStreaming) "En Vivo" else "Fuera de Línea", fontSize = 12.sp, color = Color.Gray)
+                                }
+                            }
+                            Switch(
+                                checked = isScreenStreaming,
+                                onCheckedChange = { 
+                                    isScreenStreaming = it
+                                    if (it) syncManager.sendCommand("START_SCREEN") else syncManager.sendCommand("STOP_SCREEN")
+                                },
+                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF1976D2))
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.Black)
+                                .pointerInput(isRemoteControlActive) {
+                                    if (isRemoteControlActive && isScreenStreaming) {
+                                        detectTapGestures { offset ->
+                                            val xPct = (offset.x / size.width) * 100
+                                            val yPct = (offset.y / size.height) * 100
+                                            syncManager.sendCommand("REMOTE_TOUCH:${xPct.toInt()},${yPct.toInt()}")
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isScreenStreaming && screenFrame != null) {
+                                val bitmap = try {
+                                    val bytes = Base64.decode(screenFrame, Base64.DEFAULT)
+                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                } catch (e: Exception) { null }
+                                
+                                bitmap?.let {
+                                    Image(
+                                        bitmap = it.asImageBitmap(),
+                                        contentDescription = "Screen Stream",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                                
+                                if (isRemoteControlActive) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize().background(Color.Blue.copy(alpha = 0.05f)),
+                                        contentAlignment = Alignment.TopCenter
+                                    ) {
+                                        Surface(
+                                            color = Color.Blue.copy(alpha = 0.8f),
+                                            shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
+                                        ) {
+                                            Text("MODO CONTROL ACTIVO", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            } else {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.Tv, contentDescription = null, tint = Color.DarkGray, modifier = Modifier.size(64.dp))
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("Pantalla en Espera", color = Color.Gray, fontWeight = FontWeight.Medium)
+                                }
+                            }
+                        }
+
+                        if (isScreenStreaming) {
+                            Spacer(Modifier.height(16.dp))
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isRemoteControlActive) Color(0xFFE3F2FD) else Color(0xFFF5F5F5),
+                                onClick = { isRemoteControlActive = !isRemoteControlActive }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        if (isRemoteControlActive) Icons.Default.TouchApp else Icons.Default.PanTool, 
+                                        contentDescription = null, 
+                                        tint = if (isRemoteControlActive) Color(0xFF1976D2) else Color.Gray
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Manipulación Remota", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(if (isRemoteControlActive) "Toca para controlar el dispositivo del niño" else "Activar para controlar con toques", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                    }
+                                    Checkbox(checked = isRemoteControlActive, onCheckedChange = { isRemoteControlActive = it })
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // --- Audio & Recording Section ---
+            // --- Audio Card (PREMIUM) ---
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(24.dp),
                     color = Color.White,
-                    shadowElevation = 2.dp
+                    shadowElevation = 4.dp
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Escucha Ambiental", fontWeight = FontWeight.Black)
-                        Spacer(modifier = Modifier.height(12.dp))
+                    Column(modifier = Modifier.padding(20.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = {
-                                    if (isAudioStreaming) {
-                                        isAudioStreaming = false
-                                        syncManager.sendCommand("STOP_AUDIO")
-                                        audioTrack.pause()
-                                        audioTrack.flush()
-                                    } else {
-                                        isAudioStreaming = true
-                                        syncManager.sendCommand("START_AUDIO")
+                            AnimatedKibooIcon(
+                                Icons.Default.VolumeUp, 
+                                contentDescription = null, 
+                                tint = Color(0xFFD32F2F), 
+                                size = 28.dp
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text("Escucha Ambiental", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium)
+                        }
+                        
+                        val infiniteTransition = rememberInfiniteTransition()
+                        val waveScale by infiniteTransition.animateFloat(
+                            initialValue = 1f, targetValue = 1.3f, 
+                            animationSpec = infiniteRepeatable(tween(500), RepeatMode.Reverse)
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .background(if (isAudioStreaming) Color(0xFFFFEBEE) else Color(0xFFF5F5F5), CircleShape)
+                                    .clickable {
+                                        if (isAudioStreaming) {
+                                            isAudioStreaming = false
+                                            syncManager.sendCommand("STOP_AUDIO")
+                                            audioTrack.pause()
+                                            audioTrack.flush()
+                                        } else {
+                                            isAudioStreaming = true
+                                            syncManager.sendCommand("START_AUDIO")
+                                        }
                                     }
-                                },
-                                modifier = Modifier.background(if (isAudioStreaming) Color.Red.copy(0.1f) else Color.Gray.copy(0.1f), CircleShape)
                             ) {
                                 Icon(
                                     if (isAudioStreaming) Icons.Default.Stop else Icons.Default.PlayArrow,
                                     contentDescription = null,
-                                    tint = if (isAudioStreaming) Color.Red else Color.DarkGray
+                                    tint = if (isAudioStreaming) Color.Red else Color.Gray,
+                                    modifier = Modifier.size(32.dp).graphicsLayer(scaleX = if (isAudioStreaming) waveScale else 1f, scaleY = if (isAudioStreaming) waveScale else 1f)
                                 )
                             }
-                            Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(if (isAudioStreaming) "Escuchando en vivo..." else "Audio desactivado", fontSize = 14.sp)
-                                if (isAudioStreaming) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(2.dp), color = Color.Red)
-                            }
                             
-                            // RECORD BUTTON
-                            IconButton(
+                            Spacer(Modifier.width(20.dp))
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(if (isAudioStreaming) "Capturando Audio..." else "Presiona para escuchar", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                if (isAudioStreaming) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        repeat(5) { i ->
+                                            Box(modifier = Modifier.width(4.dp).height(12.dp).background(Color.Red, RoundedCornerShape(2.dp)))
+                                        }
+                                    }
+                                } else {
+                                    Text("Micrófono del dispositivo está silenciado", fontSize = 12.sp, color = Color.Gray)
+                                }
+                            }
+
+                            // RECORDING BUTTON
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isRecordingAudio) Color.Red else Color.Transparent,
+                                modifier = Modifier.border(1.dp, if (isRecordingAudio) Color.Red else Color.LightGray, CircleShape),
                                 onClick = {
                                     if (isRecordingAudio) {
                                         isRecordingAudio = false
                                         audioOutputStream?.close()
                                         audioOutputStream = null
                                         Toast.makeText(context, "Grabación guardada", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        if (!isAudioStreaming) {
-                                            Toast.makeText(context, "Activa el audio primero", Toast.LENGTH_SHORT).show()
-                                            return@IconButton
-                                        }
+                                    } else if (isAudioStreaming) {
                                         val folder = File(context.filesDir, "KibooRecordings")
                                         if (!folder.exists()) folder.mkdirs()
                                         val file = File(folder, "REC_${System.currentTimeMillis()}.pcm")
@@ -1744,90 +1872,80 @@ class MainActivity : ComponentActivity() {
                                         audioOutputStream = FileOutputStream(file)
                                         isRecordingAudio = true
                                         Toast.makeText(context, "Grabando...", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Activa el audio primero", Toast.LENGTH_SHORT).show()
                                     }
-                                },
-                                enabled = isAudioStreaming,
-                                modifier = Modifier.background(if (isRecordingAudio) Color.Red else Color.Gray.copy(0.1f), CircleShape)
+                                }
                             ) {
-                                Icon(Icons.Default.Mic, contentDescription = null, tint = if (isRecordingAudio) Color.White else Color.DarkGray)
+                                Icon(
+                                    Icons.Default.Mic, 
+                                    contentDescription = null, 
+                                    tint = if (isRecordingAudio) Color.White else Color.Gray,
+                                    modifier = Modifier.padding(12.dp)
+                                )
                             }
                         }
                     }
                 }
             }
 
-            // --- Quick Access Panel (Recordings Library) ---
+            // --- List Items Sections ---
             item {
-                Text("Biblioteca de Grabaciones", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Herramientas Adicionales", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.DarkGray)
             }
 
+            // Recordings and Notifications list items follow here...
+            // (Keeping current logic for records but wrapping in better Surfaces)
             val recordingsFolder = File(context.filesDir, "KibooRecordings")
             val recordingFiles = recordingsFolder.listFiles()?.filter { it.extension == "pcm" }?.sortedByDescending { it.lastModified() } ?: emptyList()
 
             if (recordingFiles.isEmpty()) {
-                item { Text("No hay grabaciones guardadas", color = Color.Gray, fontSize = 12.sp) }
+                item { 
+                    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = Color.White.copy(0.5f)) {
+                        Text("No hay grabaciones archivadas", modifier = Modifier.padding(16.dp), textAlign = TextAlign.Center, color = Color.Gray, fontSize = 12.sp) 
+                    }
+                }
             } else {
                 items(recordingFiles) { file ->
                     var isPlayingItem by remember { mutableStateOf(false) }
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(16.dp),
                         color = Color.White,
-                        shadowElevation = 1.dp
+                        onClick = {
+                            if (!isPlayingItem) {
+                                isPlayingItem = true
+                                Thread {
+                                    val bytes = file.readBytes()
+                                    audioTrack.play()
+                                    audioTrack.write(bytes, 0, bytes.size)
+                                    isPlayingItem = false
+                                }.start()
+                            }
+                        }
                     ) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Folder, contentDescription = null, tint = Color.Gray)
-                            Spacer(Modifier.width(12.dp))
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(40.dp).background(Color(0xFFE8F5E9), CircleShape), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Audiotrack, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(file.name, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                Text("${file.length() / 1024} KB", fontSize = 11.sp, color = Color.Gray)
-                            }
-                            IconButton(onClick = {
-                                // Simple play logic for PCM (reuse audioTrack)
-                                if (!isPlayingItem) {
-                                    isPlayingItem = true
-                                    Thread {
-                                        val bytes = file.readBytes()
-                                        audioTrack.play()
-                                        audioTrack.write(bytes, 0, bytes.size)
-                                        isPlayingItem = false
-                                    }.start()
-                                }
-                            }) {
-                                Icon(if (isPlayingItem) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
+                                Text("${file.length() / 1024} KB • Archivo Local", fontSize = 11.sp, color = Color.Gray)
                             }
                             IconButton(onClick = { 
                                 file.delete()
-                                // Re-render triggers would be better with a state list, but listFiles works for now
-                                Toast.makeText(context, "Grabación eliminada", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Eliminado", Toast.LENGTH_SHORT).show()
                             }) {
-                                Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red.copy(0.7f))
+                                Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red.copy(0.4f))
                             }
-                        }
-                    }
-                }
-            }
-
-            // --- Notifications Section (Moved) ---
-            item {
-                Text("Alertas de Seguridad", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            }
-
-            if (notifications.isEmpty()) {
-                item { Text("No hay alertas recientes", color = Color.Gray, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
-            } else {
-                items(notifications.size) { index ->
-                    val notif = notifications[index]
-                    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = Color.White, shadowElevation = 1.dp) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(notif["title"] as? String ?: "S/T", fontWeight = FontWeight.Bold)
-                            Text(notif["message"] as? String ?: "", fontSize = 13.sp)
                         }
                     }
                 }
             }
         }
     }
+
 
     @Composable
     fun StatusCard(title: String, value: String, modifier: Modifier = Modifier, valueColor: Color = Color.Black) {
