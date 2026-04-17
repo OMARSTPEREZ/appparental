@@ -135,6 +135,7 @@ import com.example.parentalcontrol.R
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import com.example.parentalcontrol.utils.AdminReceiver
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 
@@ -1388,10 +1389,6 @@ class MainActivity : ComponentActivity() {
                             Text("Hola, $firstName", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
                             
                             Spacer(Modifier.height(20.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                DashboardStat(count = "${installedApps.size}", label = "Total Apps")
-                                DashboardStat(count = "${installedApps.count { rulesManager.isAppBlocked(it["packageName"] ?: "") }}", label = "Bloqueadas", color = Color(0xFFFFB19A))
-                            }
 
                             Spacer(Modifier.height(16.dp))
                             Surface(
@@ -1429,7 +1426,7 @@ class MainActivity : ComponentActivity() {
                             TabRowDefaults.Indicator(Modifier.tabIndicatorOffset(tabPositions[currentTab]), color = Color(0xFF1976D2))
                         }
                     ) {
-                        Tab(selected = currentTab == 0, onClick = { currentTab = 0 }, text = { Text("Apps", fontWeight = FontWeight.Bold) })
+                        Tab(selected = currentTab == 0, onClick = { currentTab = 0 }, text = { Text("Control", fontWeight = FontWeight.Bold) })
                         Tab(selected = currentTab == 1, onClick = { currentTab = 1 }, text = { Text("Monitor", fontWeight = FontWeight.Bold) })
                         Tab(selected = currentTab == 2, onClick = { currentTab = 2 }, text = { Text("Ubicación", fontWeight = FontWeight.Bold) })
                     }
@@ -1499,25 +1496,27 @@ class MainActivity : ComponentActivity() {
         var isMonitored by remember { mutableStateOf(rulesManager.isAppMonitored(packageName)) }
         
         Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            shape = RoundedCornerShape(20.dp),
             color = Color.White,
-            shadowElevation = 2.dp
+            shadowElevation = 3.dp
         ) {
             Row(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(48.dp),
-                    shape = CircleShape,
-                    color = Color(0xFFF3E5F5)
+                    modifier = Modifier.size(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (isBlocked) Color(0xFFFFEBEE) else Color(0xFFE8F5E9)
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Text(
-                            text = if (name.isNotEmpty()) name.take(1).uppercase() else "?",
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF7B5400)
+                        AnimatedKibooIcon(
+                            imageVector = if (isBlocked) Icons.Default.Lock else Icons.Default.Apps,
+                            contentDescription = null,
+                            tint = if (isBlocked) Color.Red else Color(0xFF2E7D32),
+                            size = 28.dp,
+                            isChildMode = false
                         )
                     }
                 }
@@ -1525,13 +1524,25 @@ class MainActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.width(16.dp))
                 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(text = name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = Color.DarkGray)
                     Text(text = packageName, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
                 
                 Column(horizontalAlignment = Alignment.End) {
+                    // Control de Bloqueo
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (isBlocked) "🚫 Bloqueada  " else "✅ Permitida  ", style = MaterialTheme.typography.labelSmall)
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isBlocked) Color.Red.copy(0.1f) else Color.Transparent
+                        ) {
+                            Text(
+                                if (isBlocked) "BLOQUEADA" else "PERMITIDA", 
+                                fontSize = 10.sp, 
+                                fontWeight = FontWeight.Black, 
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                color = if (isBlocked) Color.Red else Color.Gray
+                            )
+                        }
                         Switch(
                             checked = isBlocked,
                             onCheckedChange = {
@@ -1544,16 +1555,20 @@ class MainActivity : ComponentActivity() {
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = Color.Red.copy(alpha = 0.7f),
-                                uncheckedThumbColor = Color.LightGray,
-                                uncheckedTrackColor = Color.LightGray.copy(alpha = 0.3f)
+                                checkedTrackColor = Color.Red
                             ),
-                            modifier = Modifier.height(30.dp).width(40.dp)
+                            modifier = Modifier.scale(0.8f)
                         )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Control de Monitoreo
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (isMonitored) "👁️ Rastreada " else "🙈 Privada   ", style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            if (isMonitored) "RASTREANDO" else "PRIVADA", 
+                            fontSize = 10.sp, 
+                            fontWeight = FontWeight.Bold,
+                            color = if (isMonitored) Color(0xFF1976D2) else Color.LightGray
+                        )
                         Switch(
                             checked = isMonitored,
                             onCheckedChange = {
@@ -1566,17 +1581,16 @@ class MainActivity : ComponentActivity() {
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = Color(0xFF1976D2).copy(alpha = 0.8f),
-                                uncheckedThumbColor = Color.LightGray,
-                                uncheckedTrackColor = Color.LightGray.copy(alpha = 0.3f)
+                                checkedTrackColor = Color(0xFF1976D2)
                             ),
-                            modifier = Modifier.height(30.dp).width(40.dp)
+                            modifier = Modifier.scale(0.8f)
                         )
                     }
                 }
             }
         }
     }
+
 
     @Composable
     fun MonitorScreen(syncManager: FirebaseSyncManager) {
@@ -2537,55 +2551,171 @@ fun AppsMenuTab(
     }
 
     Column(
-        modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Grupo 1: Tiempo de pantalla y aplicaciones
-        MenuCategory("Tiempo de pantalla y aplicaciones") {
-            MenuListItem(
-                icon = Icons.Default.Lock,
-                title = "Bloqueo instantáneo",
-                trailing = { 
-                    Switch(
-                        checked = instantBlockActive, 
-                        onCheckedChange = { checked -> 
-                            if (checked) {
-                                showInstantBlockSheet = true 
-                            } else {
-                                instantBlockActive = false
-                                onToggleInstantBlock(false, null)
-                            }
+        Text(
+            text = "Panel de Control",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.DarkGray
+        )
+
+        // Card 1: Bloqueo Instantáneo (Vibrant Red/Orange Gradient)
+        ControlActionCard(
+            title = "Bloqueo Instantáneo",
+            subtitle = if (instantBlockActive) "Dispositivo pausado ($selectedDuration)" else "Pausar todo el dispositivo ahora",
+            icon = Icons.Default.Lock,
+            gradient = listOf(Color(0xFFFF5F6D), Color(0xFFFFC371)),
+            isActive = instantBlockActive,
+            trailing = {
+                Switch(
+                    checked = instantBlockActive,
+                    onCheckedChange = { checked ->
+                        if (checked) {
+                            showInstantBlockSheet = true
+                        } else {
+                            instantBlockActive = false
+                            onToggleInstantBlock(false, null)
                         }
+                    },
+                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White)
+                )
+            },
+            onClick = { if (!instantBlockActive) showInstantBlockSheet = true else { instantBlockActive = false; onToggleInstantBlock(false, null) } }
+        )
+
+        // Card 2: Tiempo de Inactividad (Deep Blue Gradient)
+        ControlActionCard(
+            title = "Tiempo de Inactividad",
+            subtitle = "Programa horarios de descanso",
+            icon = Icons.Default.Update,
+            gradient = listOf(Color(0xFF2193b0), Color(0xFF6dd5ed)),
+            onClick = onOpenDowntime
+        )
+
+        // Card 3: Gestión de Aplicaciones (Purple Gradient)
+        ControlActionCard(
+            title = "Gestión de Control",
+            subtitle = "Bloquea o permite apps específicas",
+            icon = Icons.Default.Apps,
+            gradient = listOf(Color(0xFF8E2DE2), Color(0xFF4A00E0)),
+            onClick = onManageApps
+        )
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Seguridad Avanzada",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.Gray
+        )
+
+        // Secondary rows for security (keeping them as premium rows)
+        PremiumSecurityRow(icon = Icons.Default.NotificationsActive, title = "Supervisión de notificaciones", color = Color(0xFFE91E63))
+        PremiumSecurityRow(icon = Icons.Default.Security, title = "Detección de contenido social", color = Color(0xFF673AB7))
+        PremiumSecurityRow(icon = Icons.Default.Language, title = "Navegación segura", color = Color(0xFF00BCD4))
+    }
+}
+
+@Composable
+fun ControlActionCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    gradient: List<Color>,
+    isActive: Boolean = false,
+    trailing: @Composable (() -> Unit)? = null,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .background(Brush.linearGradient(gradient.map { it.copy(alpha = if (isActive) 1f else 0.08f) }))
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = if (isActive) Color.White.copy(alpha = 0.2f) else gradient[0].copy(alpha = 0.2f),
+                modifier = Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    AnimatedKibooIcon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (isActive) Color.White else gradient[0],
+                        size = 28.dp
                     )
                 }
-            )
-            MenuListItem(
-                icon = Icons.Default.Update, 
-                title = "Tiempo de inactividad", 
-                onClick = onOpenDowntime
-            )
-            MenuListItem(icon = Icons.Default.Apps, title = "Gestión de aplicaciones", onClick = onManageApps)
-        }
+            }
+            
+            Spacer(Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 18.sp,
+                    color = if (isActive) Color.White else Color.DarkGray
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isActive) Color.White.copy(alpha = 0.8f) else Color.Gray
+                )
+            }
 
-        // Grupo 2: Seguridad de contenido
-        MenuCategory("Seguridad de contenido") {
-            MenuListItem(
-                icon = Icons.Default.NotificationsActive,
-                title = "Supervisión de notificaciones",
-                badge = "2"
-            )
-            MenuListItem(icon = Icons.Default.Security, title = "Detección de contenido social")
-            MenuListItem(icon = Icons.Default.Build, title = "Fotos inapropiadas")
-            MenuListItem(icon = Icons.Default.Call, title = "Control de llamadas y SMS")
-        }
-
-        // Grupo 3: Navegación segura
-        MenuCategory("Navegación segura") {
-            MenuListItem(icon = Icons.Default.Language, title = "Restricciones del sitio web")
-            MenuListItem(icon = Icons.Default.History, title = "Historial de navegación")
+            if (trailing != null) {
+                trailing()
+            } else {
+                Icon(
+                    Icons.Default.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = if (isActive) Color.White else Color.LightGray
+                )
+            }
         }
     }
 }
+
+@Composable
+fun PremiumSecurityRow(icon: ImageVector, title: String, color: Color) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        onClick = { /* Future feature */ }
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(color.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.DarkGray)
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -2848,73 +2978,88 @@ fun AppsManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Gestión de aplicaciones", fontWeight = FontWeight.Black, fontSize = 20.sp) },
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF1976D2).copy(alpha = 0.1f),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Apps, contentDescription = null, tint = Color(0xFF1976D2), modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text("Central de Control", fontWeight = FontWeight.Black, fontSize = 20.sp, color = Color.DarkGray)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.DarkGray)
                     }
                 },
-                actions = {
-                    IconButton(onClick = { /* Configuración */ }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Ajustes")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         },
-        containerColor = Color(0xFFF8F9FA)
+        containerColor = Color(0xFFF1F5F9)
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Banner Naranja (Advertencia) - Estético
+            // Header Section with Search
             Surface(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                color = Color(0xFFFFF3E0),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFFFB74D).copy(0.3f))
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shadowElevation = 1.dp
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(androidx.compose.material.icons.Icons.Default.Info, null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        "Concede los permisos en Kiboo Kids",
-                        color = Color(0xFFE65100),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.weight(1f)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Buscar aplicación...", color = Color.Gray) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                        shape = RoundedCornerShape(28.dp),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            focusedBorderColor = Color(0xFF1976D2),
+                            unfocusedBorderColor = Color.LightGray.copy(alpha = 0.5f),
+                            containerColor = Color(0xFFF8F9FA)
+                        ),
+                        singleLine = true
                     )
-                    Icon(Icons.Default.KeyboardArrowDown, null, tint = Color(0xFFFF9800), modifier = Modifier.size(16.dp))
                 }
             }
-
-            // Pestañas Personalizadas
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .background(Color(0xFFEEEEEE), RoundedCornerShape(24.dp))
-                    .padding(4.dp)
+            // Pestañas de Gestión Premium
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shadowElevation = 2.dp
             ) {
-                val tabs = listOf("Gestión de aplicaci...", "Aplicaciones")
-                tabs.forEachIndexed { index, title ->
-                    val isSelected = selectedTab == index
-                    Surface(
-                        onClick = { selectedTab = index },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        shape = RoundedCornerShape(20.dp),
-                        color = if (isSelected) Color.White else Color.Transparent,
-                        shadowElevation = if (isSelected) 2.dp else 0.dp
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                title,
-                                color = if (isSelected) Color(0xFF1976D2) else Color.Gray,
-                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium,
-                                fontSize = 13.sp
-                            )
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .background(Color(0xFFF1F5F9), RoundedCornerShape(22.dp))
+                        .padding(4.dp)
+                ) {
+                    val tabs = listOf("Reglas Activas", "Todas las Apps")
+                    tabs.forEachIndexed { index, title ->
+                        val isSelected = selectedTab == index
+                        Surface(
+                            onClick = { selectedTab = index },
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            shape = RoundedCornerShape(18.dp),
+                            color = if (isSelected) Color.White else Color.Transparent,
+                            shadowElevation = if (isSelected) 2.dp else 0.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    title,
+                                    color = if (isSelected) Color(0xFF1976D2) else Color.Gray,
+                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
                 }
