@@ -104,6 +104,7 @@ import androidx.compose.material.icons.filled.Audiotrack
 import android.util.Base64
 import android.graphics.BitmapFactory
 import com.example.parentalcontrol.models.Rule
+import com.example.parentalcontrol.models.SubscriptionData
 import com.example.parentalcontrol.services.MonitoringService
 import com.example.parentalcontrol.utils.FirebaseSyncManager
 import com.example.parentalcontrol.utils.RulesManager
@@ -1268,6 +1269,7 @@ class MainActivity : ComponentActivity() {
         var deviceMenuExpanded by remember { mutableStateOf(false) }
         var showAppsManagement by remember { mutableStateOf(false) }
         var showDowntimeScreen by remember { mutableStateOf(false) }
+        var subscriptionData by remember { mutableStateOf(SubscriptionData()) }
 
         LaunchedEffect(currentUser) {
             syncManager.listenForInstalledApps { apps ->
@@ -1292,6 +1294,9 @@ class MainActivity : ComponentActivity() {
                         selectedDevice = devices.first()
                         syncManager.updateChildId(devices.first()["childId"] ?: "")
                     }
+                }
+                syncManager.listenForSubscription(uid) { sub ->
+                    subscriptionData = sub
                 }
             }
         }
@@ -1379,6 +1384,38 @@ class MainActivity : ComponentActivity() {
                                             DropdownMenuItem(text = { Text("🔐 Seguridad") }, onClick = { menuExpanded = false; showChangePinDialog = true })
                                             Divider()
                                             DropdownMenuItem(text = { Text("🚪 Cerrar Sesión", color = Color.Red) }, onClick = { menuExpanded = false; onLogout() })
+                                        }
+                                    }
+                                }
+                            }
+
+                            // --- Trial Timer Banner (Discrete Top) ---
+                            if (subscriptionData.isTrial && !subscriptionData.isPaid) {
+                                val remainingMs = subscriptionData.trialEndsAt - System.currentTimeMillis()
+                                if (remainingMs > 0) {
+                                    val days = remainingMs / (24 * 3600 * 1000)
+                                    val hours = (remainingMs % (24 * 3600 * 1000)) / (3600 * 1000)
+                                    val minutes = (remainingMs % (3600 * 1000)) / (60 * 1000)
+                                    
+                                    Surface(
+                                        modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
+                                        color = Color.White.copy(alpha = 0.12f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.3f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Text("⏱️", fontSize = 12.sp)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                text = "Prueba Gratuita: ${days}d ${hours}h ${minutes}m restantes",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.sp
+                                            )
                                         }
                                     }
                                 }

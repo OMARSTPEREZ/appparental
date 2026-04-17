@@ -1,6 +1,7 @@
 package com.example.parentalcontrol.utils
 
 import com.example.parentalcontrol.models.Rule
+import com.example.parentalcontrol.models.SubscriptionData
 import com.google.firebase.database.*
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
@@ -366,6 +367,43 @@ class FirebaseSyncManager(private var childId: String) {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val config = snapshot.value as? Map<String, Any> ?: emptyMap()
                 onUpdate(config)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    // --- Subscription & Trial Logic ---
+    fun listenForSubscription(uid: String, onUpdate: (SubscriptionData) -> Unit) {
+        database.child("users").child(uid).child("subscription").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (snapshot.exists()) {
+                    val isTrial = snapshot.child("isTrial").getValue(Boolean::class.java) ?: true
+                    val isPaid = snapshot.child("isPaid").getValue(Boolean::class.java) ?: false
+                    val trialEndsAt = snapshot.child("trialEndsAt").getValue(Long::class.java) ?: 0L
+                    onUpdate(SubscriptionData(isTrial, isPaid, trialEndsAt))
+                } else {
+                    // Si no existe, inicializar trial de 3 días
+                    initTrialIfNotExists(uid)
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    private fun initTrialIfNotExists(uid: String) {
+        val userSubRef = database.child("users").child(uid).child("subscription")
+        userSubRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (!snapshot.exists()) {
+                    val trialDurationMs = 3 * 24 * 60 * 60 * 1000L // 3 días
+                    val trialEndsAt = System.currentTimeMillis() + trialDurationMs
+                    val initialSub = mapOf(
+                        "isTrial" to true,
+                        "isPaid" to false,
+                        "trialEndsAt" to trialEndsAt
+                    )
+                    userSubRef.setValue(initialSub)
+                }
             }
             override fun onCancelled(error: DatabaseError) {}
         })
