@@ -8,12 +8,12 @@ class SessionManager(context: Context) {
 
     companion object {
         const val KEY_USER_ROLE = "user_role"
+        const val KEY_PARENT_UID = "parent_uid"
         const val ROLE_ADMIN = "ADMIN"
         const val ROLE_CHILD = "CHILD"
         const val ROLE_NONE = "NONE"
 
         const val THEME_BOY = "BOY"
-        const val THEME_GIRL = "GIRL"
         const val THEME_DARK = "DARK"
     }
 
@@ -23,6 +23,14 @@ class SessionManager(context: Context) {
 
     fun getUserRole(): String {
         return prefs.getString(KEY_USER_ROLE, ROLE_NONE) ?: ROLE_NONE
+    }
+
+    fun saveParentUid(uid: String?) {
+        prefs.edit().putString(KEY_PARENT_UID, uid).apply()
+    }
+
+    fun getParentUid(): String? {
+        return prefs.getString(KEY_PARENT_UID, null)
     }
 
     fun clearSession() {

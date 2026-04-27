@@ -11,7 +11,7 @@ class FirebaseSyncManager(private var childId: String) {
     private var childRef = database.child("children").child(childId)
 
     /**
-     * Actualiza el childId y las referencias internas (usado tras vinculación o cambio en selector)
+     * Actualiza el childId y las referencias internas
      */
     fun updateChildId(newChildId: String) {
         this.childId = newChildId
@@ -28,6 +28,10 @@ class FirebaseSyncManager(private var childId: String) {
             "avatar" to avatar
         )
         database.child("parents").child(parentUid).child("devices").child(childId).setValue(deviceData)
+    }
+
+    fun unregisterDeviceFromParent(parentUid: String, childId: String) {
+        database.child("parents").child(parentUid).child("devices").child(childId).removeValue()
     }
 
     fun listenForLinkedDevices(parentUid: String, onUpdate: (List<Map<String, String>>) -> Unit) {

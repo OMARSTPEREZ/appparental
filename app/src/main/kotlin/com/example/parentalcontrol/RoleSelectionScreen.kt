@@ -30,6 +30,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.example.parentalcontrol.R
+import androidx.camera.core.*
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.ui.viewinterop.AndroidView
+import com.google.zxing.*
+import com.google.zxing.common.HybridBinarizer
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.content.pm.PackageManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +58,14 @@ fun RoleSelectionScreen(
     
     var showSetPinDialog by remember { mutableStateOf(false) }
     var showVerifyPinDialog by remember { mutableStateOf(false) }
+    var showQrScanner by remember { mutableStateOf(false) }
+    
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) showQrScanner = true
+        else android.widget.Toast.makeText(context, "Se necesita permiso de cámara", android.widget.Toast.LENGTH_SHORT).show()
+    }
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf<String?>(null) }
     var pairingCodeInput by remember { mutableStateOf("") }
@@ -71,78 +94,6 @@ fun RoleSelectionScreen(
     var showGenderDialog by remember { mutableStateOf(false) }
     var showPairingCodeDialog by remember { mutableStateOf(forcedRole == "CHILD") }
     
-    if (showGenderDialog) {
-        AlertDialog(
-            onDismissRequest = { showGenderDialog = false },
-            title = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text("👶", fontSize = 40.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Text("¿Quién usará este dispositivo?", fontWeight = FontWeight.Black, fontSize = 18.sp, textAlign = TextAlign.Center)
-                    Text("Esto personalizará los colores y la experiencia", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center)
-                }
-            },
-            text = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Tarjeta Niño
-                    Surface(
-                        onClick = {
-                            showGenderDialog = false
-                            onRoleSelected("CHILD_CODE:$pairingCodeInput", "BOY")
-                        },
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFFE3F2FD),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp)
-                        ) {
-                            Text("👦", fontSize = 48.sp)
-                            Spacer(Modifier.height(10.dp))
-                            Text("Niño", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFF1565C0))
-                            Spacer(Modifier.height(4.dp))
-                            Text("Tema Azul", fontSize = 11.sp, color = Color(0xFF42A5F5))
-                        }
-                    }
-
-                    // Tarjeta Niña
-                    Surface(
-                        onClick = {
-                            showGenderDialog = false
-                            onRoleSelected("CHILD_CODE:$pairingCodeInput", "GIRL")
-                        },
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFFFCE4EC),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp)
-                        ) {
-                            Text("👧", fontSize = 48.sp)
-                            Spacer(Modifier.height(10.dp))
-                            Text("Niña", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFFC2185B))
-                            Spacer(Modifier.height(4.dp))
-                            Text("Tema Rosa", fontSize = 11.sp, color = Color(0xFFEC407A))
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { 
-                    showGenderDialog = false
-                    showPairingCodeDialog = true
-                }) {
-                    Text("Volver", color = Color.Gray)
-                }
-            }
-        )
-    }
 
     if (showPairingCodeDialog) {
         AlertDialog(
@@ -228,6 +179,21 @@ fun RoleSelectionScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(pairingCodeError!!, color = Color.Red, fontSize = 12.sp)
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                showQrScanner = true
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("📷 ESCANEAR CÓDIGO QR", fontWeight = FontWeight.Bold)
+                    }
                 }
             },
             confirmButton = {
@@ -235,7 +201,8 @@ fun RoleSelectionScreen(
                     onClick = {
                         if (pairingCodeInput.length == 8) {
                             showPairingCodeDialog = false
-                            showGenderDialog = true
+                            // Saltar selección de género y usar Niño (Azul) por defecto
+                            onRoleSelected("CHILD_CODE:$pairingCodeInput", "BOY")
                         } else {
                             pairingCodeError = "Ingresa 8 caracteres"
                         }
@@ -350,6 +317,21 @@ fun RoleSelectionScreen(
             }
         }
     }
+
+    if (showQrScanner) {
+        QrScannerDialog(
+            onDismiss = { showQrScanner = false },
+            onCodeScanned = { code ->
+                showQrScanner = false
+                pairingCodeInput = code
+                // Autoconfirmar si el código es válido
+                if (code.length == 8) {
+                    showPairingCodeDialog = false
+                    onRoleSelected("CHILD_CODE:$code", "BOY")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -425,6 +407,107 @@ fun RoleCard(
                         tint = Color(0xFFE65100),
                         modifier = Modifier.align(Alignment.End)
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QrScannerDialog(
+    onDismiss: () -> Unit,
+    onCodeScanned: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color.Black
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                AndroidView(
+                    factory = { ctx ->
+                        val previewView = PreviewView(ctx)
+                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                        
+                        cameraProviderFuture.addListener({
+                            val cameraProvider = cameraProviderFuture.get()
+                            val preview = Preview.Builder().build().also {
+                                it.setSurfaceProvider(previewView.surfaceProvider)
+                            }
+                            
+                            val imageAnalysis = ImageAnalysis.Builder()
+                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                .build()
+                            
+                            imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(ctx)) { imageProxy ->
+                                val buffer = imageProxy.planes[0].buffer
+                                val data = ByteArray(buffer.remaining())
+                                buffer.get(data)
+                                
+                                val source = PlanarYUVLuminanceSource(
+                                    data, imageProxy.width, imageProxy.height,
+                                    0, 0, imageProxy.width, imageProxy.height, false
+                                )
+                                val binarizer = HybridBinarizer(source)
+                                val binaryBitmap = BinaryBitmap(binarizer)
+                                
+                                try {
+                                    val result = MultiFormatReader().decode(binaryBitmap)
+                                    val code = result.text
+                                    if (code.startsWith("KIBOO_LINK:")) {
+                                        val actualCode = code.substringAfter(":")
+                                        onCodeScanned(actualCode)
+                                    }
+                                } catch (e: Exception) {
+                                    // No QR found
+                                } finally {
+                                    imageProxy.close()
+                                }
+                            }
+                            
+                            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                            
+                            try {
+                                cameraProvider.unbindAll()
+                                cameraProvider.bindToLifecycle(
+                                    lifecycleOwner, cameraSelector, preview, imageAnalysis
+                                )
+                            } catch (e: Exception) {
+                                Log.e("QrScanner", "Camera binding failed", e)
+                            }
+                        }, ContextCompat.getMainExecutor(ctx))
+                        
+                        previewView
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                
+                // Overlay
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(250.dp)
+                            .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Apunta al código QR del padre", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.TopStart).padding(16.dp).statusBarsPadding()
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Cerrar", tint = Color.White)
                 }
             }
         }
