@@ -12,6 +12,7 @@ import {
   RefreshControl,
   Image,
   Modal,
+  Platform,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -247,6 +248,23 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleDeleteChild = (cId: string, cName: string) => {
+    const executeDelete = async () => {
+      setChildren((prev) => prev.filter((c) => c.id !== cId));
+      try {
+        await supabase.from('children').delete().eq('id', cId);
+      } catch (err: any) {
+        console.warn('Error deleting child:', err);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm(`¿Deseas desvincular y eliminar "${cName}" de tu panel de supervisión?`) : true;
+      if (confirmed) {
+        executeDelete();
+      }
+      return;
+    }
+
     Alert.alert(
       'Desvincular Dispositivo',
       `¿Deseas desvincular y eliminar "${cName}" de tu panel de supervisión?`,
@@ -255,15 +273,7 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {
           text: 'Desvincular',
           style: 'destructive',
-          onPress: async () => {
-            setChildren((prev) => prev.filter((c) => c.id !== cId));
-            try {
-              await supabase.from('children').delete().eq('id', cId);
-              Alert.alert('Dispositivo Desvinculado', `"${cName}" fue eliminado del panel.`);
-            } catch (err: any) {
-              console.warn('Error deleting child:', err);
-            }
-          },
+          onPress: executeDelete,
         },
       ]
     );
