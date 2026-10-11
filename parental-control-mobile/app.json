@@ -22,7 +22,10 @@
         "CAMERA",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "POST_NOTIFICATIONS"
+        "ACCESS_BACKGROUND_LOCATION",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
@@ -43,7 +46,30 @@
     },
     "owner": "omarsteperez",
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kibbo requiere acceso a la cámara para escanear el QR de vinculación y funciones de seguridad."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Kibbo requiere acceso a la ubicación para supervisión y geolocalización familiar.",
+          "locationWhenInUsePermission": "Kibbo requiere acceso a la ubicación para supervisión familiar.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0F172A",
+          "sounds": []
+        }
+      ]
     ]
   }
 }

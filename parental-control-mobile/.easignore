@@ -1,0 +1,36 @@
+# Archivos innecesarios para la compilación en EAS Build
+
+# Entornos de desarrollo local
+.expo/
+.expo-shared/
+*.log
+
+# Herramientas de diagnóstico y scripts temporales
+node_modules/.cache/
+.metro-health-check*
+
+# Documentación y archivos de referencia
+docs/
+*.md
+!README.md
+
+# Carpetas de tests
+__tests__/
+__mocks__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.suo
+
+# Archivos de OS
+.DS_Store
+Thumbs.db
+
+# Código fuente web-only
+web-build/
+dist/
