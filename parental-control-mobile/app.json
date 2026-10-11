@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Kibbo - Seguridad Familiar",
+    "slug": "kibbo-seguridad-familiar",
+    "scheme": "kibbo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kibbo.seguridadfamiliar",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Kibbo requiere acceso a la cámara para escanear el código QR de vinculación y funciones de seguridad.",
+        "NSLocationWhenInUseUsageDescription": "Kibbo requiere acceso a la ubicación para la supervisión y geolocalización familiar.",
+        "NSMicrophoneUsageDescription": "Kibbo requiere acceso al micrófono para funciones de alerta de audio ambiental."
+      }
+    },
+    "android": {
+      "package": "com.kibbo.seguridadfamiliar",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#0F172A",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "70d23a94-0283-45cc-949f-98de20e0b406"
+      }
+    },
+    "owner": "omarsteperez",
+    "plugins": [
+      "expo-web-browser"
+    ]
+  }
+}
