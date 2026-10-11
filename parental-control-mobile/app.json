@@ -7,33 +7,37 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.kibbo.seguridadfamiliar",
       "infoPlist": {
-        "NSCameraUsageDescription": "Kibbo requiere acceso a la cámara para escanear el código QR de vinculación y funciones de seguridad.",
-        "NSLocationWhenInUseUsageDescription": "Kibbo requiere acceso a la ubicación para la supervisión y geolocalización familiar.",
-        "NSMicrophoneUsageDescription": "Kibbo requiere acceso al micrófono para funciones de alerta de audio ambiental."
+        "NSCameraUsageDescription": "Kibbo requiere acceso a la camara para escanear el QR de vinculacion y funciones de seguridad.",
+        "NSLocationWhenInUseUsageDescription": "Kibbo requiere acceso a la ubicacion para la supervision y geolocalizacion familiar.",
+        "NSMicrophoneUsageDescription": "Kibbo requiere acceso al microfono para funciones de alerta de audio ambiental."
       }
     },
     "android": {
       "package": "com.kibbo.seguridadfamiliar",
+      "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "POST_NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -46,18 +50,16 @@
     },
     "owner": "omarsteperez",
     "plugins": [
-      "expo-web-browser",
       [
         "expo-camera",
         {
-          "cameraPermission": "Kibbo requiere acceso a la cámara para escanear el QR de vinculación y funciones de seguridad."
+          "cameraPermission": "Kibbo necesita la camara para escanear el QR de vinculacion."
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Kibbo requiere acceso a la ubicación para supervisión y geolocalización familiar.",
-          "locationWhenInUsePermission": "Kibbo requiere acceso a la ubicación para supervisión familiar.",
+          "locationWhenInUsePermission": "Kibbo necesita tu ubicacion para supervision familiar.",
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }
@@ -66,8 +68,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#0F172A",
-          "sounds": []
+          "color": "#0F172A"
         }
       ]
     ]
