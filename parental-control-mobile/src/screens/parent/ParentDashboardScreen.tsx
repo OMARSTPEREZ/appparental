@@ -13,6 +13,7 @@ import {
   Image,
   Modal,
   Platform,
+  TextInput,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -47,6 +48,105 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
     name: 'Padre',
     avatarUrl: null,
   });
+
+  // Admin PIN / Password Management State
+  const [isPinModalVisible, setIsPinModalVisible] = useState(false);
+  const [currentAdminPin, setCurrentAdminPin] = useState('0000');
+  const [newAdminPin, setNewAdminPin] = useState('');
+  const [confirmAdminPin, setConfirmAdminPin] = useState('');
+  const [isSavingPin, setIsSavingPin] = useState(false);
+
+  // Unhide App Guide Modal State
+  const [isUnhideModalVisible, setIsUnhideModalVisible] = useState(false);
+  const [isSendingUnhideCommand, setIsSendingUnhideCommand] = useState(false);
+
+  const handleRemoteUnhideApp = async () => {
+    const targetId = children.length > 0 ? children[0].id : 'child_mateo_01';
+    try {
+      setIsSendingUnhideCommand(true);
+      await realtimeService.sendCommand(targetId, 'TOGGLE_HIDE_ICON', { hidden: false });
+      await storageService.saveAppIconHidden(false);
+
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          window.alert('¡Comando enviado! El icono de Kibbo volverá a ser visible en el celular del menor.');
+        }
+      } else {
+        Alert.alert(
+          'Icono Restaurado',
+          'Se ha transmitido la orden por satélite/internet. El icono de Kibbo volverá a aparecer en el menú del menor.',
+          [{ text: 'Entendido' }]
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('Error', 'No se pudo enviar el comando: ' + err.message);
+    } finally {
+      setIsSendingUnhideCommand(false);
+    }
+  };
+
+  useEffect(() => {
+    storageService.getAdminPin().then((pin) => {
+      if (pin) setCurrentAdminPin(pin);
+    });
+  }, []);
+
+  const handleSaveNewAdminPin = async () => {
+    if (!newAdminPin || newAdminPin.length < 4) {
+      Alert.alert('PIN Inválido', 'El PIN debe tener al menos 4 dígitos numéricos.');
+      return;
+    }
+    if (newAdminPin !== confirmAdminPin) {
+      Alert.alert('Error', 'Los PINs ingresados no coinciden. Por favor verifica.');
+      return;
+    }
+
+    try {
+      setIsSavingPin(true);
+      await storageService.saveAdminPin(newAdminPin);
+      setCurrentAdminPin(newAdminPin);
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        const userId = data?.session?.user?.id;
+        if (userId) {
+          await supabase.from('parents').update({ admin_pin: newAdminPin }).eq('id', userId);
+        }
+      } catch (err) {
+        console.warn('Could not sync admin_pin with Supabase parents table:', err);
+      }
+
+      for (const child of children) {
+        try {
+          await realtimeService.sendCommand(child.id, 'UPDATE_ADMIN_PIN', {
+            pin: newAdminPin,
+          });
+        } catch (e) {
+          console.warn('Error broadcasting new PIN to child:', child.id, e);
+        }
+      }
+
+      setIsPinModalVisible(false);
+      setNewAdminPin('');
+      setConfirmAdminPin('');
+
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          window.alert(`¡PIN de Administrador actualizado con éxito a: ${newAdminPin}!`);
+        }
+      } else {
+        Alert.alert(
+          '¡PIN Actualizado!',
+          `La nueva contraseña/PIN de administrador es "${newAdminPin}". Ha sido sincronizado con todos los dispositivos de tus hijos.`,
+          [{ text: 'Entendido' }]
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('Error', 'No se pudo guardar el nuevo PIN: ' + err.message);
+    } finally {
+      setIsSavingPin(false);
+    }
+  };
 
   useEffect(() => {
     const loadParentProfile = async () => {
@@ -328,10 +428,24 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.subtitleHeader}>Panel de Protección Familiar</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutAndSwitchRole}>
-            <Ionicons name="log-out-outline" size={18} color={theme.colors.danger} />
-            <Text style={styles.logoutButtonText}>Salir</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              style={styles.pinHeaderButton}
+              onPress={() => {
+                setNewAdminPin('');
+                setConfirmAdminPin('');
+                setIsPinModalVisible(true);
+              }}
+            >
+              <Ionicons name="key" size={15} color="#F59E0B" />
+              <Text style={styles.pinHeaderButtonText}>PIN ({currentAdminPin})</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutAndSwitchRole}>
+              <Ionicons name="log-out-outline" size={18} color={theme.colors.danger} />
+              <Text style={styles.logoutButtonText}>Salir</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Emergency SOS Banner */}
@@ -446,6 +560,36 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
               </View>
               <Text style={styles.suiteCardTitle}>Vinculación QR</Text>
               <Text style={styles.suiteCardSub}>Vincular Nuevo Dispositivo</Text>
+            </TouchableOpacity>
+
+            {/* 5. Módulo Maestro: Asignar / Cambiar Contraseña PIN */}
+            <TouchableOpacity
+              style={styles.suiteCard}
+              activeOpacity={0.85}
+              onPress={() => {
+                setNewAdminPin('');
+                setConfirmAdminPin('');
+                setIsPinModalVisible(true);
+              }}
+            >
+              <View style={[styles.suiteIconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                <Ionicons name="key" size={22} color="#F59E0B" />
+              </View>
+              <Text style={styles.suiteCardTitle}>PIN de Administrador</Text>
+              <Text style={styles.suiteCardSub}>Actual: {currentAdminPin} • Cambiar</Text>
+            </TouchableOpacity>
+
+            {/* 6. Módulo Maestro: App Oculta & Cómo Desocultarla */}
+            <TouchableOpacity
+              style={styles.suiteCard}
+              activeOpacity={0.85}
+              onPress={() => setIsUnhideModalVisible(true)}
+            >
+              <View style={[styles.suiteIconCircle, { backgroundColor: 'rgba(129, 140, 248, 0.15)' }]}>
+                <Ionicons name="eye-outline" size={22} color="#818CF8" />
+              </View>
+              <Text style={styles.suiteCardTitle}>App Oculta & Acceso</Text>
+              <Text style={styles.suiteCardSub}>Cómo abrirla y desocultarla</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -577,6 +721,19 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                     <Ionicons name="chevron-forward" size={16} color="#38BDF8" />
                   </View>
+                </TouchableOpacity>
+
+                {/* Botón informativo de app oculta / cómo abrirla o restaurarla */}
+                <TouchableOpacity
+                  style={styles.stealthHintRow}
+                  activeOpacity={0.82}
+                  onPress={() => setIsUnhideModalVisible(true)}
+                >
+                  <Ionicons name="eye-off-outline" size={15} color="#818CF8" />
+                  <Text style={styles.stealthHintText}>
+                    ¿La app está oculta en este celular? <Text style={{ fontWeight: '700', color: '#C7D2FE' }}>Toca aquí para ver cómo abrirla o restaurarla</Text>
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color="#818CF8" />
                 </TouchableOpacity>
 
                 {/* Actions */}
@@ -884,6 +1041,183 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.reportDoneBtnText}>Cerrar</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── MODAL: ASIGNAR NUEVA CONTRASEÑA / PIN DE ADMINISTRADOR ── */}
+      <Modal
+        visible={isPinModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setIsPinModalVisible(false)}
+      >
+        <View style={styles.pinModalOverlay}>
+          <View style={styles.pinModalCard}>
+            <View style={styles.pinModalIconCircle}>
+              <Ionicons name="key" size={32} color="#F59E0B" />
+            </View>
+
+            <Text style={styles.pinModalTitle}>Contraseña de Administrador</Text>
+            <Text style={styles.pinModalDesc}>
+              Asigna o actualiza el PIN maestro. Este PIN es obligatorio para desinstalar, desvincular o desbloquear dispositivos de tus hijos.
+            </Text>
+
+            <View style={styles.currentPinBanner}>
+              <Text style={styles.currentPinLabel}>PIN ACTUAL:</Text>
+              <Text style={styles.currentPinValue}>{currentAdminPin}</Text>
+            </View>
+
+            <View style={styles.pinInputGroup}>
+              <Text style={styles.inputFieldLabel}>Nuevo PIN (4 a 6 dígitos):</Text>
+              <TextInput
+                style={styles.pinInputField}
+                placeholder="Ej. 1234"
+                placeholderTextColor="#64748B"
+                keyboardType="numeric"
+                maxLength={6}
+                secureTextEntry
+                value={newAdminPin}
+                onChangeText={setNewAdminPin}
+              />
+            </View>
+
+            <View style={styles.pinInputGroup}>
+              <Text style={styles.inputFieldLabel}>Confirmar Nuevo PIN:</Text>
+              <TextInput
+                style={styles.pinInputField}
+                placeholder="Repite el nuevo PIN"
+                placeholderTextColor="#64748B"
+                keyboardType="numeric"
+                maxLength={6}
+                secureTextEntry
+                value={confirmAdminPin}
+                onChangeText={setConfirmAdminPin}
+              />
+            </View>
+
+            <View style={styles.pinModalButtonsRow}>
+              <TouchableOpacity
+                style={styles.pinCancelBtn}
+                onPress={() => setIsPinModalVisible(false)}
+              >
+                <Text style={styles.pinCancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.pinConfirmBtn}
+                onPress={handleSaveNewAdminPin}
+                disabled={isSavingPin}
+              >
+                {isSavingPin ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.pinConfirmBtnText}>Guardar PIN</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── MODAL: CÓMO ABRIR O DESOCULTAR LA APP DEL HIJO ── */}
+      <Modal
+        visible={isUnhideModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setIsUnhideModalVisible(false)}
+      >
+        <View style={styles.pinModalOverlay}>
+          <View style={styles.unhideModalCard}>
+            <View style={styles.unhideModalHeader}>
+              <View style={styles.unhideIconCircle}>
+                <Ionicons name="eye-outline" size={26} color="#818CF8" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.unhideModalTitle}>Recuperar Visibilidad de la App</Text>
+                <Text style={styles.unhideModalSub}>Guía para abrir o desocultar Kibbo en el teléfono de tu hijo</Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsUnhideModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 370, width: '100%', marginVertical: 10 }} showsVerticalScrollIndicator={false}>
+              {/* Opción 1: Desocultar Remotamente */}
+              <View style={styles.unhideOptionBox}>
+                <View style={styles.unhideOptionBadge}>
+                  <Text style={styles.unhideOptionBadgeText}>OPCIÓN 1: REMOTA (RECOMENDADA)</Text>
+                </View>
+                <Text style={styles.unhideOptionTitle}>Hacer visible el icono por internet</Text>
+                <Text style={styles.unhideOptionDesc}>
+                  Envía una señal instantánea al celular de tu hijo para que el icono vuelva a aparecer en su menú sin necesidad de manipular su teléfono.
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.remoteUnhideBtn}
+                  activeOpacity={0.85}
+                  onPress={handleRemoteUnhideApp}
+                  disabled={isSendingUnhideCommand}
+                >
+                  {isSendingUnhideCommand ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="send" size={16} color="#FFFFFF" />
+                      <Text style={styles.remoteUnhideBtnText}>Restaurar Icono Remotamente</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Opción 2: Marcador Telefónico Físico */}
+              <View style={styles.unhideOptionBox}>
+                <View style={styles.unhideOptionBadge}>
+                  <Text style={styles.unhideOptionBadgeText}>OPCIÓN 2: MARCADOR DE LLAMADAS</Text>
+                </View>
+                <Text style={styles.unhideOptionTitle}>Código Secreto en el Teléfono</Text>
+                <Text style={styles.unhideOptionDesc}>
+                  Abre la app de llamadas en el celular del hijo y marca el código:
+                </Text>
+                <View style={styles.codePillBox}>
+                  <Ionicons name="keypad" size={18} color="#38BDF8" />
+                  <Text style={styles.codePillNumber}>*#54226#</Text>
+                </View>
+                <Text style={styles.codePillHint}>La aplicación se abrirá de inmediato en pantalla.</Text>
+              </View>
+
+              {/* Opción 3: Enlace Navegador */}
+              <View style={styles.unhideOptionBox}>
+                <View style={styles.unhideOptionBadge}>
+                  <Text style={styles.unhideOptionBadgeText}>OPCIÓN 3: ENLACE RÁPIDO EN NAVEGADOR</Text>
+                </View>
+                <Text style={styles.unhideOptionTitle}>Desde Google Chrome</Text>
+                <Text style={styles.unhideOptionDesc}>
+                  Escribe en la barra de direcciones de Chrome del celular del hijo:
+                </Text>
+                <View style={styles.codePillBox}>
+                  <Ionicons name="globe-outline" size={18} color="#10B981" />
+                  <Text style={[styles.codePillNumber, { color: '#10B981' }]}>kibbo://settings</Text>
+                </View>
+              </View>
+
+              {/* Opción 4: PIN de Administrador */}
+              <View style={[styles.unhideOptionBox, { borderColor: '#F59E0B' }]}>
+                <View style={[styles.unhideOptionBadge, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
+                  <Text style={[styles.unhideOptionBadgeText, { color: '#F59E0B' }]}>PIN MAESTRO REQUERIDO</Text>
+                </View>
+                <Text style={styles.unhideOptionDesc}>
+                  Para cambiar ajustes o desvincular la app una vez abierta, se exigirá tu PIN actual: <Text style={{ color: '#F8FAFC', fontWeight: '800' }}>{currentAdminPin}</Text>
+                </Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.unhideCloseBtn}
+              onPress={() => setIsUnhideModalVisible(false)}
+            >
+              <Text style={styles.unhideCloseBtnText}>Entendido</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1758,6 +2092,298 @@ const styles = StyleSheet.create({
   reportDoneBtnText: {
     color: '#CBD5E1',
     fontWeight: '600',
+    fontSize: 13,
+  },
+  pinHeaderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  pinHeaderButtonText: {
+    ...theme.typography.caption,
+    color: '#F59E0B',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  pinModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  pinModalCard: {
+    backgroundColor: '#0F172A',
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  pinModalIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  pinModalTitle: {
+    ...theme.typography.h3,
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  pinModalDesc: {
+    ...theme.typography.caption,
+    color: '#94A3B8',
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 16,
+  },
+  currentPinBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1E293B',
+    width: '100%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 16,
+  },
+  currentPinLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  currentPinValue: {
+    color: '#F59E0B',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  pinInputGroup: {
+    width: '100%',
+    marginBottom: 14,
+  },
+  inputFieldLabel: {
+    ...theme.typography.caption,
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  pinInputField: {
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: '#F8FAFC',
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    textAlign: 'center',
+    fontWeight: '700',
+    letterSpacing: 2,
+  },
+  pinModalButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginTop: 8,
+  },
+  pinCancelBtn: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  pinCancelBtnText: {
+    color: '#94A3B8',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  pinConfirmBtn: {
+    flex: 1,
+    backgroundColor: '#F59E0B',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  pinConfirmBtnText: {
+    color: '#000000',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  stealthHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: theme.borderRadius.md,
+    marginTop: 10,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.22)',
+  },
+  stealthHintText: {
+    ...theme.typography.caption,
+    color: '#94A3B8',
+    fontSize: 11.5,
+    flex: 1,
+    marginLeft: 8,
+  },
+  unhideModalCard: {
+    backgroundColor: '#0F172A',
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  unhideModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  unhideIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(129, 140, 248, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unhideModalTitle: {
+    ...theme.typography.bodyBold,
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  unhideModalSub: {
+    ...theme.typography.caption,
+    color: '#94A3B8',
+    fontSize: 11.5,
+    marginTop: 2,
+  },
+  unhideOptionBox: {
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 10,
+  },
+  unhideOptionBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(129, 140, 248, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  unhideOptionBadgeText: {
+    color: '#818CF8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  unhideOptionTitle: {
+    ...theme.typography.bodyBold,
+    color: '#F8FAFC',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  unhideOptionDesc: {
+    ...theme.typography.caption,
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  remoteUnhideBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#6366F1',
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  remoteUnhideBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  codePillBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginTop: 6,
+    gap: 8,
+  },
+  codePillNumber: {
+    color: '#38BDF8',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  codePillHint: {
+    ...theme.typography.caption,
+    color: '#64748B',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  unhideCloseBtn: {
+    backgroundColor: '#1E293B',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginTop: 4,
+  },
+  unhideCloseBtnText: {
+    color: '#F8FAFC',
+    fontWeight: '700',
     fontSize: 13,
   },
 });

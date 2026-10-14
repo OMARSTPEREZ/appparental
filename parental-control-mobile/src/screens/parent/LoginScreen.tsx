@@ -351,10 +351,26 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             fullName.trim() || 'Padre / Tutor',
             'https://api.dicebear.com/7.x/bottts/png?seed=parent'
           );
-          Alert.alert(
-            'Cuenta Creada',
-            'Tu cuenta en Supabase ha sido creada correctamente.'
-          );
+
+          if (data?.session) {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'ParentDashboard' }],
+            });
+          } else {
+            setIsSignUp(false);
+            if (Platform.OS === 'web') {
+              if (typeof window !== 'undefined') {
+                window.alert('¡Cuenta creada con éxito en Supabase! Ya puedes iniciar sesión con tu correo y contraseña.');
+              }
+            } else {
+              Alert.alert(
+                'Cuenta Creada con Éxito',
+                'Tu cuenta ha sido registrada en Supabase. Ahora puedes iniciar sesión con tu correo y contraseña.',
+                [{ text: 'Iniciar Sesión' }]
+              );
+            }
+          }
         }
       } else {
         // Sign in existing parent in Supabase Auth
@@ -375,9 +391,15 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             data.user.user_metadata?.full_name || 'Padre de Familia',
             'https://api.dicebear.com/7.x/bottts/png?seed=parent'
           );
+
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'ParentDashboard' }],
+          });
         }
       }
     } catch (err: any) {
+      console.error('Email Auth Error:', err);
       Alert.alert('Error de Autenticación', err.message || 'Ocurrió un error inesperado.');
     } finally {
       setLoading(false);
@@ -460,9 +482,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Auth Actions Container */}
         <View style={styles.actions}>
-          {loading ? (
-            <ActivityIndicator size="large" color={theme.colors.parentAccent} style={{ marginVertical: 20 }} />
-          ) : authMode === 'oauth' ? (
+          {authMode === 'oauth' ? (
             <>
               {/* Google OAuth Button */}
               <TouchableOpacity
@@ -528,18 +548,30 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </View>
 
               <TouchableOpacity
-                style={styles.submitButton}
+                style={[styles.submitButton, loading && { opacity: 0.85 }]}
                 activeOpacity={0.88}
+                disabled={loading}
                 onPress={handleEmailAuth}
               >
-                <Ionicons
-                  name={isSignUp ? 'person-add-outline' : 'log-in-outline'}
-                  size={20}
-                  color={theme.colors.white}
-                />
-                <Text style={styles.submitButtonText}>
-                  {isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión'}
-                </Text>
+                {loading ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.submitButtonText}>
+                      {isSignUp ? 'Creando cuenta...' : 'Iniciando sesión...'}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Ionicons
+                      name={isSignUp ? 'person-add-outline' : 'log-in-outline'}
+                      size={20}
+                      color={theme.colors.white}
+                    />
+                    <Text style={styles.submitButtonText}>
+                      {isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity

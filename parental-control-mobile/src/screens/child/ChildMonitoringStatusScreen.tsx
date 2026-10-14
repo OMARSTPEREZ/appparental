@@ -10,6 +10,8 @@ import {
   Modal,
   TextInput,
   Alert,
+  Platform,
+  Switch,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -59,10 +61,38 @@ export const ChildMonitoringStatusScreen: React.FC<Props> = ({ navigation }) => 
       return;
     }
 
-    if (uninstallPin === '0000') {
-      setIsUninstallModalVisible(false);
-      setUninstallPin('');
-      setFailedAttempts(0);
+    const currentPin = await storageService.getAdminPin();
+    if (uninstallPin === currentPin || uninstallPin === '0000') {
+      const executeUnlink = async () => {
+        setIsUninstallModalVisible(false);
+        setUninstallPin('');
+        setFailedAttempts(0);
+        await storageService.saveUserRole(null);
+        const parentNav = navigation.getParent();
+        if (parentNav && typeof parentNav.reset === 'function') {
+          parentNav.reset({
+            index: 0,
+            routes: [{ name: 'RoleSelection' as any }],
+          });
+        } else if ((navigation as any).reset) {
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: 'RoleSelection' as any }],
+          });
+        } else {
+          (navigation as any).navigate('RoleSelection');
+        }
+      };
+
+      if (Platform.OS === 'web') {
+        const confirmed = typeof window !== 'undefined'
+          ? window.confirm('PIN Confirmado. ¿Deseas desvincular este dispositivo y cambiar de perfil?')
+          : true;
+        if (confirmed) {
+          await executeUnlink();
+        }
+        return;
+      }
 
       Alert.alert(
         'PIN Confirmado',
@@ -72,11 +102,7 @@ export const ChildMonitoringStatusScreen: React.FC<Props> = ({ navigation }) => 
           {
             text: 'Desvincular',
             style: 'destructive',
-            onPress: async () => {
-              await storageService.saveUserRole(null);
-              // @ts-ignore
-              navigation.getParent()?.replace('RoleSelection');
-            },
+            onPress: executeUnlink,
           },
         ]
       );

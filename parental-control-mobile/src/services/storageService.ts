@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   RULES: '@parental_app_rules',
   PAIRING_TOKEN: '@parental_app_pairing_token',
   IS_APP_ICON_HIDDEN: '@parental_app_icon_hidden',
+  ADMIN_PIN: '@parental_app_admin_pin',
 };
 
 export const storageService = {
@@ -127,6 +128,24 @@ export const storageService = {
     } catch (error) {
       console.error('Error getting app icon hidden state:', error);
       return false;
+    }
+  },
+
+  async saveAdminPin(pin: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ADMIN_PIN, pin);
+    } catch (error) {
+      console.error('Error saving admin pin:', error);
+    }
+  },
+
+  async getAdminPin(): Promise<string> {
+    try {
+      const pin = await AsyncStorage.getItem(STORAGE_KEYS.ADMIN_PIN);
+      return pin || '0000';
+    } catch (error) {
+      console.error('Error getting admin pin:', error);
+      return '0000';
     }
   },
 

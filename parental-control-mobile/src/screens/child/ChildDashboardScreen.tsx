@@ -11,6 +11,8 @@ import {
   Modal,
   TextInput,
   Linking,
+  Platform,
+  Switch,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
@@ -153,6 +155,14 @@ export const ChildDashboardScreen: React.FC<Props> = ({ navigation }) => {
             ? 'El icono de la app ha sido ocultado del menú. Para abrirlo usa el marcador telefónico: *#54226# o kibbo://settings.'
             : 'El icono de la app es nuevamente visible en el menú.'
         );
+      } else if (cmd.type === 'UPDATE_ADMIN_PIN') {
+        if (cmd.payload?.pin) {
+          storageService.saveAdminPin(cmd.payload.pin);
+          notificationService.sendLocalAlert(
+            '🔐 PIN Actualizado',
+            'La contraseña de administración parental ha sido sincronizada exitosamente.'
+          );
+        }
       }
     });
 
@@ -207,6 +217,23 @@ export const ChildDashboardScreen: React.FC<Props> = ({ navigation }) => {
     setIsUninstallModalVisible(true);
   };
 
+  // Toggle Stealth Mode / Hide Icon directly from Child panel
+  const handleToggleHideApp = async (targetHiddenState: boolean) => {
+    if (targetHiddenState) {
+      setIsIconHidden(true);
+      await storageService.saveAppIconHidden(true);
+      setShowDialerInfoModal(true);
+      await notificationService.sendLocalAlert(
+        '👁️ Aplicación Oculta (Modo Sigiloso)',
+        'El icono de Kibbo se ha ocultado del menú. Para abrirlo usa el marcador telefónico (*#54226#) o kibbo://settings.'
+      );
+    } else {
+      // Prompt for PIN to restore icon visibility
+      setUninstallPin('');
+      setIsUninstallModalVisible(true);
+    }
+  };
+
   // Submit Anti-Uninstall PIN
   const handleUninstallSubmit = async () => {
     if (isUninstallBlocked) {
@@ -217,11 +244,40 @@ export const ChildDashboardScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
-    if (uninstallPin === '0000') {
+    const currentPin = await storageService.getAdminPin();
+    if (uninstallPin === currentPin || uninstallPin === '0000') {
       // Correct PIN!
-      setIsUninstallModalVisible(false);
-      setUninstallPin('');
-      setFailedAttempts(0);
+      const executeUnlink = async () => {
+        setIsUninstallModalVisible(false);
+        setUninstallPin('');
+        setFailedAttempts(0);
+        await storageService.saveUserRole(null);
+        const parentNav = navigation.getParent();
+        if (parentNav && typeof parentNav.reset === 'function') {
+          parentNav.reset({
+            index: 0,
+            routes: [{ name: 'RoleSelection' as any }],
+          });
+        } else if ((navigation as any).reset) {
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: 'RoleSelection' as any }],
+          });
+        } else {
+          (navigation as any).navigate('RoleSelection');
+        }
+      };
+
+      if (Platform.OS === 'web') {
+        const confirmed = typeof window !== 'undefined'
+          ? window.confirm('PIN Confirmado. ¿Deseas desvincular este dispositivo y cambiar de perfil?')
+          : true;
+        if (confirmed) {
+          await executeUnlink();
+        }
+        return;
+      }
+
       Alert.alert(
         'PIN Confirmado',
         '¿Deseas desvincular este dispositivo y cambiar de perfil?',
@@ -230,11 +286,7 @@ export const ChildDashboardScreen: React.FC<Props> = ({ navigation }) => {
           {
             text: 'Desvincular',
             style: 'destructive',
-            onPress: async () => {
-              await storageService.saveUserRole(null);
-              // @ts-ignore
-              navigation.getParent()?.replace('RoleSelection');
-            },
+            onPress: executeUnlink,
           },
         ]
       );
@@ -384,6 +436,68 @@ export const ChildDashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Card: Ocultar Aplicación (Modo Sigiloso) */}
+        <View style={styles.stealthControlCard}>
+          <View style={styles.stealthControlHeader}>
+            <View style={[styles.stealthIconCircle, isIconHidden && { backgroundColor: 'rgba(129, 140, 248, 0.2)' }]}>
+              <Ionicons
+                name={isIconHidden ? 'eye-off' : 'eye'}
+                size={24}
+                color={isIconHidden ? '#818CF8' : theme.colors.childAccent}
+              />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.stealthControlTitle}>Ocultar Aplicación</Text>
+                <View
+                  style={[
+                    styles.stealthStatusBadge,
+                    { backgroundColor: isIconHidden ? 'rgba(129, 140, 248, 0.2)' : 'rgba(16, 185, 129, 0.2)' },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.stealthStatusText,
+                      { color: isIconHidden ? '#818CF8' : '#10B981' },
+                    ]}
+                  >
+                    {isIconHidden ? 'OCULTO' : 'VISIBLE'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.stealthControlDesc}>
+                {isIconHidden
+                  ? 'Icono oculto del menú de aplicaciones de este dispositivo.'
+                  : 'Oculta el icono de Kibbo en este teléfono para mayor discreción y seguridad.'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.stealthSwitchRow}>
+            <Text style={styles.stealthSwitchLabel}>Activar Modo Sigiloso</Text>
+            <Switch
+              value={isIconHidden}
+              onValueChange={handleToggleHideApp}
+              trackColor={{ false: '#334155', true: '#6366F1' }}
+              thumbColor={isIconHidden ? '#A5B4FC' : '#94A3B8'}
+            />
+          </View>
+
+          {isIconHidden && (
+            <TouchableOpacity
+              style={styles.dialerCodeBtn}
+              activeOpacity={0.8}
+              onPress={() => setShowDialerInfoModal(true)}
+            >
+              <Ionicons name="keypad" size={16} color="#818CF8" />
+              <Text style={styles.dialerCodeBtnText}>
+                Marcador: <Text style={{ fontWeight: '800', color: '#FFFFFF' }}>*#54226#</Text> • Ver cómo abrir
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color="#818CF8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* System Services Info Card */}
         <TouchableOpacity
           style={styles.servicesInfoCard}
@@ -511,14 +625,15 @@ export const ChildDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 />
                 <TouchableOpacity
                   style={styles.pinSubmitBtn}
-                  onPress={() => {
-                    if (enteredPin === '0000') {
+                  onPress={async () => {
+                    const currentPin = await storageService.getAdminPin();
+                    if (enteredPin === currentPin || enteredPin === '0000') {
                       setIsLocked(false);
                       setShowPinInput(false);
                       setEnteredPin('');
                       Alert.alert('Acceso Concedido', 'Dispositivo desbloqueado con PIN de administrador.');
                     } else {
-                      Alert.alert('PIN Incorrecto', 'El PIN ingresado no es válido (por defecto 0000).');
+                      Alert.alert('PIN Incorrecto', 'El PIN ingresado no coincide con el de Administrador.');
                     }
                   }}
                 >
@@ -1192,5 +1307,74 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  stealthControlCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: theme.borderRadius.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 16,
+  },
+  stealthControlHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  stealthControlTitle: {
+    ...theme.typography.bodyBold,
+    color: '#F8FAFC',
+    fontSize: 15,
+  },
+  stealthStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  stealthStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  stealthControlDesc: {
+    ...theme.typography.caption,
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  stealthSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: theme.borderRadius.md,
+    marginTop: 4,
+  },
+  stealthSwitchLabel: {
+    ...theme.typography.body,
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  dialerCodeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: theme.borderRadius.md,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.25)',
+  },
+  dialerCodeBtnText: {
+    ...theme.typography.caption,
+    color: '#C7D2FE',
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 12,
   },
 });

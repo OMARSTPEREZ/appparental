@@ -13,7 +13,8 @@ export type CommandType =
   | 'SOS_ALERT'
   | 'REMOTE_TOUCH'
   | 'EVENT_SCREENSHOT'
-  | 'TOGGLE_HIDE_ICON';
+  | 'TOGGLE_HIDE_ICON'
+  | 'UPDATE_ADMIN_PIN';
 
 export interface InstalledApp {
   packageName: string;

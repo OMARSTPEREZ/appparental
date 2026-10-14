@@ -19,6 +19,7 @@ import { RouteProp } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { ParentStackParamList, InstalledApp } from '../../types';
 import { supabase } from '../../config/supabase';
+import { storageService } from '../../services/storageService';
 import { realtimeService } from '../../services/realtimeService';
 import { isTimeInSchedule } from '../../utils/geofence';
 import { theme } from '../../theme/theme';
@@ -227,11 +228,66 @@ export const ParentRulesScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
+  // Admin PIN management state
+  const [adminPin, setAdminPin] = useState('0000');
+  const [isPinModalVisible, setIsPinModalVisible] = useState(false);
+  const [newAdminPin, setNewAdminPin] = useState('');
+  const [confirmAdminPin, setConfirmAdminPin] = useState('');
+  const [isSavingPin, setIsSavingPin] = useState(false);
+
   useEffect(() => {
     fetchRulesFromSupabase();
     fetchGeofencesFromSupabase();
     fetchLockStatus();
+    storageService.getAdminPin().then((pin) => {
+      if (pin) setAdminPin(pin);
+    });
   }, [childId]);
+
+  const handleSaveNewAdminPin = async () => {
+    if (!newAdminPin || newAdminPin.length < 4) {
+      Alert.alert('PIN Inválido', 'El PIN debe tener al menos 4 dígitos numéricos.');
+      return;
+    }
+    if (newAdminPin !== confirmAdminPin) {
+      Alert.alert('Error', 'Los PINs ingresados no coinciden. Por favor verifica.');
+      return;
+    }
+
+    try {
+      setIsSavingPin(true);
+      await storageService.saveAdminPin(newAdminPin);
+      setAdminPin(newAdminPin);
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        const userId = data?.session?.user?.id;
+        if (userId) {
+          await supabase.from('parents').update({ admin_pin: newAdminPin }).eq('id', userId);
+        }
+      } catch (err) {
+        console.warn('Could not sync admin_pin with Supabase parents table:', err);
+      }
+
+      await realtimeService.sendCommand(childId, 'UPDATE_ADMIN_PIN', {
+        pin: newAdminPin,
+      });
+
+      setIsPinModalVisible(false);
+      setNewAdminPin('');
+      setConfirmAdminPin('');
+
+      Alert.alert(
+        '¡PIN Actualizado!',
+        `La nueva contraseña/PIN de administrador es "${newAdminPin}". Ha sido sincronizado con el dispositivo supervisado.`,
+        [{ text: 'Entendido' }]
+      );
+    } catch (err: any) {
+      Alert.alert('Error', 'No se pudo guardar el nuevo PIN: ' + err.message);
+    } finally {
+      setIsSavingPin(false);
+    }
+  };
 
   // Bloqueo Total de Emergencia (PAUSE_DEVICE)
   const handleEmergencyLockdownToggle = async () => {
@@ -1101,9 +1157,20 @@ export const ParentRulesScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.antiUninstallTitle}>PIN de Seguridad Anti-Desinstalación</Text>
                   <Text style={styles.antiUninstallSub}>
-                    PIN Maestro Actual: <Text style={{ color: '#F8FAFC', fontWeight: '800' }}>0000</Text>
+                    PIN Maestro Actual: <Text style={{ color: '#F8FAFC', fontWeight: '800' }}>{adminPin}</Text>
                   </Text>
                 </View>
+                <TouchableOpacity
+                  style={styles.changePinBtn}
+                  onPress={() => {
+                    setNewAdminPin('');
+                    setConfirmAdminPin('');
+                    setIsPinModalVisible(true);
+                  }}
+                >
+                  <Ionicons name="key" size={14} color="#F59E0B" />
+                  <Text style={styles.changePinBtnText}>Cambiar PIN</Text>
+                </TouchableOpacity>
               </View>
 
               <Text style={styles.antiUninstallDescription}>
@@ -1465,6 +1532,81 @@ export const ParentRulesScreen: React.FC<Props> = ({ navigation, route }) => {
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={styles.saveBtnText}>Guardar en Supabase</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── MODAL: ASIGNAR NUEVA CONTRASEÑA / PIN DE ADMINISTRADOR ── */}
+        <Modal
+          visible={isPinModalVisible}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setIsPinModalVisible(false)}
+        >
+          <View style={styles.pinModalOverlay}>
+            <View style={styles.pinModalCard}>
+              <View style={styles.pinModalIconCircle}>
+                <Ionicons name="key" size={32} color="#F59E0B" />
+              </View>
+
+              <Text style={styles.pinModalTitle}>Contraseña de Administrador</Text>
+              <Text style={styles.pinModalDesc}>
+                Asigna o actualiza el PIN maestro. Este PIN es obligatorio para desinstalar o desvincular el dispositivo del hijo.
+              </Text>
+
+              <View style={styles.currentPinBanner}>
+                <Text style={styles.currentPinLabel}>PIN ACTUAL:</Text>
+                <Text style={styles.currentPinValue}>{adminPin}</Text>
+              </View>
+
+              <View style={styles.pinInputGroup}>
+                <Text style={styles.inputFieldLabel}>Nuevo PIN (4 a 6 dígitos):</Text>
+                <TextInput
+                  style={styles.pinInputField}
+                  placeholder="Ej. 1234"
+                  placeholderTextColor="#64748B"
+                  keyboardType="numeric"
+                  maxLength={6}
+                  secureTextEntry
+                  value={newAdminPin}
+                  onChangeText={setNewAdminPin}
+                />
+              </View>
+
+              <View style={styles.pinInputGroup}>
+                <Text style={styles.inputFieldLabel}>Confirmar Nuevo PIN:</Text>
+                <TextInput
+                  style={styles.pinInputField}
+                  placeholder="Repite el nuevo PIN"
+                  placeholderTextColor="#64748B"
+                  keyboardType="numeric"
+                  maxLength={6}
+                  secureTextEntry
+                  value={confirmAdminPin}
+                  onChangeText={setConfirmAdminPin}
+                />
+              </View>
+
+              <View style={styles.pinModalButtonsRow}>
+                <TouchableOpacity
+                  style={styles.pinCancelBtn}
+                  onPress={() => setIsPinModalVisible(false)}
+                >
+                  <Text style={styles.pinCancelBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.pinConfirmBtn}
+                  onPress={handleSaveNewAdminPin}
+                  disabled={isSavingPin}
+                >
+                  {isSavingPin ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.pinConfirmBtnText}>Guardar PIN</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -2383,5 +2525,149 @@ const styles = StyleSheet.create({
   radiusPillTextActive: {
     color: '#38BDF8',
     fontWeight: '800',
+  },
+  changePinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  changePinBtnText: {
+    color: '#F59E0B',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  pinModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  pinModalCard: {
+    backgroundColor: '#0F172A',
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  pinModalIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  pinModalTitle: {
+    ...theme.typography.h3,
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  pinModalDesc: {
+    ...theme.typography.caption,
+    color: '#94A3B8',
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 16,
+  },
+  currentPinBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1E293B',
+    width: '100%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 16,
+  },
+  currentPinLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  currentPinValue: {
+    color: '#F59E0B',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  pinInputGroup: {
+    width: '100%',
+    marginBottom: 14,
+  },
+  inputFieldLabel: {
+    ...theme.typography.caption,
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  pinInputField: {
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: '#F8FAFC',
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    textAlign: 'center',
+    fontWeight: '700',
+    letterSpacing: 2,
+  },
+  pinModalButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginTop: 8,
+  },
+  pinCancelBtn: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  pinCancelBtnText: {
+    color: '#94A3B8',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  pinConfirmBtn: {
+    flex: 1,
+    backgroundColor: '#F59E0B',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  pinConfirmBtnText: {
+    color: '#000000',
+    fontWeight: '800',
+    fontSize: 13,
   },
 });
