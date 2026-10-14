@@ -12,6 +12,7 @@ import {
   Image,
   TextInput,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons, Ionicons, FontAwesome } from '@expo/vector-icons';
@@ -104,6 +105,138 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  // Helper to resolve accurate redirect URI without forcing localhost on mobile
+  const getRedirectUri = () => {
+    if (Platform.OS === 'web') {
+      return typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : '';
+    }
+    return makeRedirectUri({
+      scheme: 'kibbo',
+      path: 'auth/callback',
+    });
+  };
+
+  // Helper to parse tokens or OAuth authorization code from redirect URL
+  const extractParamsFromUrl = (url: string): Record<string, string> => {
+    const params: Record<string, string> = {};
+    const queryPart = url.split('?')[1]?.split('#')[0];
+    const hashPart = url.split('#')[1];
+
+    if (queryPart) {
+      queryPart.split('&').forEach((p) => {
+        const [k, v] = p.split('=');
+        if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || '');
+      });
+    }
+    if (hashPart) {
+      hashPart.split('&').forEach((p) => {
+        const [k, v] = p.split('=');
+        if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || '');
+      });
+    }
+    return params;
+  };
+
+  // Process incoming authentication URL from WebBrowser session or Native Deep Linking
+  const handleAuthUrl = async (url: string) => {
+    console.log('[Auth] Processing callback URL:', url);
+    try {
+      const params = extractParamsFromUrl(url);
+
+      // Flow 1: Implicit flow (access_token & refresh_token in hash/query)
+      if (params.access_token && params.refresh_token) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: params.access_token,
+          refresh_token: params.refresh_token,
+        });
+
+        if (error) {
+          console.warn('[Auth] Error setting session:', error.message);
+          Alert.alert('Error de Sesión', error.message);
+          return;
+        }
+
+        if (data?.session?.user) {
+          const u = data.session.user;
+          await syncParentRecord(
+            u.id,
+            u.email || 'padre@kibbo.app',
+            u.user_metadata?.full_name || 'Padre de Familia',
+            u.user_metadata?.avatar_url || 'https://api.dicebear.com/7.x/bottts/png?seed=parent'
+          );
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'ParentDashboard' }],
+          });
+          return;
+        }
+      }
+
+      // Flow 2: PKCE flow (authorization code in query)
+      if (params.code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
+
+        if (error) {
+          console.warn('[Auth] Error exchanging code for session:', error.message);
+          Alert.alert('Error de Código OAuth', error.message);
+          return;
+        }
+
+        if (data?.session?.user) {
+          const u = data.session.user;
+          await syncParentRecord(
+            u.id,
+            u.email || 'padre@kibbo.app',
+            u.user_metadata?.full_name || 'Padre de Familia',
+            u.user_metadata?.avatar_url || 'https://api.dicebear.com/7.x/bottts/png?seed=parent'
+          );
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'ParentDashboard' }],
+          });
+          return;
+        }
+      }
+
+      if (params.error_description || params.error) {
+        Alert.alert('Error de Autenticación', params.error_description || params.error);
+      }
+    } catch (err: any) {
+      console.error('[Auth] Error in handleAuthUrl:', err);
+    }
+  };
+
+  // Deep linking listener for external redirects (cold & warm start)
+  useEffect(() => {
+    const handleUrlEvent = (event: { url: string }) => {
+      if (
+        event.url &&
+        (event.url.startsWith('kibbo://') ||
+          event.url.includes('access_token=') ||
+          event.url.includes('code='))
+      ) {
+        handleAuthUrl(event.url);
+      }
+    };
+
+    const linkSub = Linking.addEventListener('url', handleUrlEvent);
+
+    Linking.getInitialURL().then((url) => {
+      if (
+        url &&
+        (url.startsWith('kibbo://') ||
+          url.includes('access_token=') ||
+          url.includes('code='))
+      ) {
+        handleAuthUrl(url);
+      }
+    });
+
+    return () => {
+      linkSub.remove();
+    };
+  }, []);
+
   // Global listener for Supabase authentication state
   useEffect(() => {
     // 1. Check if session already exists (e.g. following OAuth redirect)
@@ -149,10 +282,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const redirectUrl = makeRedirectUri({
-        scheme: 'kibbo',
-        preferLocalhost: true,
-      });
+      const redirectUrl = getRedirectUri();
+      console.log('[Auth] Google OAuth redirectUrl:', redirectUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -175,13 +306,13 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       } else if (data?.url) {
         const res = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
         if (res.type === 'success' && res.url) {
-          // Deep link session will be caught by onAuthStateChange
+          await handleAuthUrl(res.url);
         }
-        setGoogleLoading(false);
       }
     } catch (err: any) {
       console.error('Google Auth Error:', err);
       Alert.alert('Error de Autenticación', err.message || 'No se pudo conectar con Google.');
+    } finally {
       setGoogleLoading(false);
     }
   };
@@ -196,10 +327,12 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     try {
       if (isSignUp) {
         // Register new parent in Supabase Auth
+        const redirectUrl = getRedirectUri();
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
           options: {
+            emailRedirectTo: redirectUrl,
             data: {
               full_name: fullName.trim() || 'Padre / Tutor',
             },
