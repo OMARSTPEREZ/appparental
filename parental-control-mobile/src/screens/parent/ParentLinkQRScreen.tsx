@@ -128,15 +128,9 @@ export const ParentLinkQRScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleDirectDownload = async () => {
     try {
-      const supported = await Linking.canOpenURL(directApkUrl);
-      if (supported) {
-        await Linking.openURL(directApkUrl);
-      } else {
-        await Linking.openURL(landingUrl);
-      }
+      await Linking.openURL(landingUrl);
     } catch (error: any) {
-      Alert.alert('Descarga', 'No se pudo iniciar la descarga directa. Abriendo página oficial...');
-      Linking.openURL(landingUrl);
+      Alert.alert('Descarga', error.message || 'No se pudo abrir la página de descarga.');
     }
   };
 
