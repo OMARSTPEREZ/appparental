@@ -112,15 +112,31 @@ export const ParentLinkQRScreen: React.FC<Props> = ({ navigation }) => {
     generateSecurePairingToken(childName);
   }, []);
 
+  const landingUrl = 'https://omarstperez.github.io/kibbo-descarga/';
+  const directApkUrl = 'https://expo.dev/artifacts/eas/SYO5TVBi-L25cbe8_jjPl9IB_tdH1ML3_ke2prdbOvg.apk';
+
   const handleShareApk = async () => {
     try {
-      const apkUrl = 'https://expo.dev/artifacts/eas/SYO5TVBi-L25cbe8_jjPl9IB_tdH1ML3_ke2prdbOvg.apk';
       await Share.share({
-        message: `🛡️ Kibbo - Seguridad Familiar\n\nDescarga el instalador oficial de Kibbo para vincular el teléfono de tu hijo:\n${apkUrl}`,
-        title: 'Kibbo - Descargar Instalador',
+        message: `🛡️ Kibbo - Seguridad Familiar\n\nDescarga la app oficial de Kibbo para vincular y proteger el dispositivo de tu hijo:\n${landingUrl}`,
+        title: 'Kibbo - Seguridad Familiar',
       });
     } catch (error: any) {
       Alert.alert('Compartir', error.message || 'No se pudo abrir el menú para compartir.');
+    }
+  };
+
+  const handleDirectDownload = async () => {
+    try {
+      const supported = await Linking.canOpenURL(directApkUrl);
+      if (supported) {
+        await Linking.openURL(directApkUrl);
+      } else {
+        await Linking.openURL(landingUrl);
+      }
+    } catch (error: any) {
+      Alert.alert('Descarga', 'No se pudo iniciar la descarga directa. Abriendo página oficial...');
+      Linking.openURL(landingUrl);
     }
   };
 
@@ -166,15 +182,26 @@ export const ParentLinkQRScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Primary Share APK Button */}
-        <TouchableOpacity
-          style={styles.shareApkButton}
-          activeOpacity={0.88}
-          onPress={handleShareApk}
-        >
-          <MaterialCommunityIcons name="share-variant" size={22} color={theme.colors.white} />
-          <Text style={styles.shareApkButtonText}>Compartir instalador con el teléfono de mi hijo</Text>
-        </TouchableOpacity>
+        {/* Two Action Buttons: Share Link & Direct Download */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            style={styles.shareLinkButton}
+            activeOpacity={0.88}
+            onPress={handleShareApk}
+          >
+            <MaterialCommunityIcons name="share-variant" size={20} color={theme.colors.white} />
+            <Text style={styles.actionButtonText}>Compartir Enlace</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.downloadApkButton}
+            activeOpacity={0.88}
+            onPress={handleDirectDownload}
+          >
+            <Ionicons name="download-outline" size={20} color={theme.colors.white} />
+            <Text style={styles.actionButtonText}>Descargar App</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* QR Code Container */}
         <View style={styles.qrCard}>
@@ -303,25 +330,45 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     marginLeft: 8,
   },
-  shareApkButton: {
+  actionButtonsRow: {
     width: '100%',
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: theme.spacing.lg,
+  },
+  shareLinkButton: {
+    flex: 1,
     backgroundColor: '#0284C7',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: theme.borderRadius.lg,
-    gap: 10,
-    marginBottom: theme.spacing.lg,
+    gap: 8,
     shadowColor: '#0284C7',
     shadowOpacity: 0.35,
     shadowRadius: 10,
-    elevation: 5,
+    elevation: 4,
   },
-  shareApkButtonText: {
+  downloadApkButton: {
+    flex: 1,
+    backgroundColor: '#059669',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: theme.borderRadius.lg,
+    gap: 8,
+    shadowColor: '#059669',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  actionButtonText: {
     ...theme.typography.button,
     color: theme.colors.white,
     fontWeight: '700',
+    fontSize: 13,
   },
   qrCard: {
     backgroundColor: theme.colors.surface,
