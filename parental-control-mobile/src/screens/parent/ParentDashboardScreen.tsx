@@ -428,24 +428,10 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.subtitleHeader}>Panel de Protección Familiar</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity
-              style={styles.pinHeaderButton}
-              onPress={() => {
-                setNewAdminPin('');
-                setConfirmAdminPin('');
-                setIsPinModalVisible(true);
-              }}
-            >
-              <Ionicons name="key" size={15} color="#F59E0B" />
-              <Text style={styles.pinHeaderButtonText}>PIN ({currentAdminPin})</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutAndSwitchRole}>
-              <Ionicons name="log-out-outline" size={18} color={theme.colors.danger} />
-              <Text style={styles.logoutButtonText}>Salir</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutAndSwitchRole}>
+            <Ionicons name="log-out-outline" size={18} color={theme.colors.danger} />
+            <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Emergency SOS Banner */}
