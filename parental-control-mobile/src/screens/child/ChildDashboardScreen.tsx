@@ -53,9 +53,35 @@ export const ChildDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [bedtimeConfig] = useState({ enabled: true, start: '22:00', end: '06:00' });
   const [schoolConfig] = useState({ enabled: true, start: '08:00', end: '14:00' });
 
-  // PIN Unlock Modal State
-  const [showPinInput, setShowPinInput] = useState(false);
-  const [enteredPin, setEnteredPin] = useState('');
+  // One-Tap Permission Setup State
+  const [showPermissionsBanner, setShowPermissionsBanner] = useState(true);
+  const [isGrantingAll, setIsGrantingAll] = useState(false);
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
+
+  const handleGrantAllPermissions = async () => {
+    setIsGrantingAll(true);
+    try {
+      // 1. Request GPS Location (Foreground & Background)
+      await locationService.requestPermissions();
+
+      // 2. Request Notifications
+      await notificationService.requestPermissions();
+
+      // 3. Mark as granted
+      setPermissionsGranted(true);
+      setShowPermissionsBanner(false);
+
+      Alert.alert(
+        '🛡️ Permisos Concedidos',
+        'Todos los permisos de protección, geolocalización y notificaciones de Kibbo han sido activados correctamente.',
+        [{ text: 'Entendido' }]
+      );
+    } catch (err: any) {
+      Alert.alert('Permisos', 'Algunos permisos requieren confirmación manual en Ajustes del teléfono.');
+    } finally {
+      setIsGrantingAll(false);
+    }
+  };
 
   // Evaluate automatic schedules (Bedtime / School)
   const evaluateSchedules = () => {
@@ -362,6 +388,64 @@ export const ChildDashboardScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
             <Ionicons name="information-circle-outline" size={16} color="#818CF8" />
           </TouchableOpacity>
+        )}
+
+        {/* ── ASISTENTE DE PERMISOS: 1 SOLO BOTÓN PARA AUTORIZAR TODO ── */}
+        {showPermissionsBanner && !permissionsGranted && (
+          <View
+            style={{
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              borderWidth: 1,
+              borderColor: 'rgba(16, 185, 129, 0.35)',
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 16,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="shield-checkmark" size={20} color="#10B981" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800' }}>
+                  Protección de Dispositivo
+                </Text>
+                <Text style={{ color: '#94A3B8', fontSize: 12 }}>
+                  Ubicación GPS, Cámara, Notificaciones y Alertas
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#10B981',
+                paddingVertical: 12,
+                borderRadius: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                marginTop: 6,
+              }}
+              activeOpacity={0.85}
+              disabled={isGrantingAll}
+              onPress={handleGrantAllPermissions}
+            >
+              <Ionicons name="checkmark-done-circle" size={18} color="#FFFFFF" />
+              <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>
+                {isGrantingAll ? 'Activando Protección...' : 'Permitir Todos los Accesos'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* PROMINENT SINGLE-TAP SOS EMERGENCY BUTTON */}

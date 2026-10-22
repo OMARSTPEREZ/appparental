@@ -112,13 +112,13 @@ export const ParentLinkQRScreen: React.FC<Props> = ({ navigation }) => {
     generateSecurePairingToken(childName);
   }, []);
 
-  const landingUrl = 'https://omarstperez.github.io/kibbo-descarga/';
+  const landingUrl = 'https://is.gd/kibboapp';
   const directApkUrl = 'https://expo.dev/artifacts/eas/SYO5TVBi-L25cbe8_jjPl9IB_tdH1ML3_ke2prdbOvg.apk';
 
   const handleShareApk = async () => {
     try {
       await Share.share({
-        message: `🛡️ Kibbo - Seguridad Familiar\n\nDescarga la app oficial de Kibbo para vincular y proteger el dispositivo de tu hijo:\n${landingUrl}`,
+        message: `🛡️ Kibbo - Seguridad Familiar\n\nDescarga la aplicación oficial de Kibbo para vincular y proteger el teléfono de tu hijo:\n${landingUrl}`,
         title: 'Kibbo - Seguridad Familiar',
       });
     } catch (error: any) {
