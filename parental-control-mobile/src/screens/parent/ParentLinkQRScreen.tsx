@@ -128,9 +128,17 @@ export const ParentLinkQRScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleDirectDownload = async () => {
     try {
-      await Linking.openURL(landingUrl);
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.open(landingUrl, '_blank');
+      } else {
+        await Linking.openURL(landingUrl);
+      }
     } catch (error: any) {
-      Alert.alert('Descarga', error.message || 'No se pudo abrir la página de descarga.');
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.location.href = landingUrl;
+      } else {
+        Alert.alert('Descarga', error.message || 'No se pudo abrir la página de descarga.');
+      }
     }
   };
 
