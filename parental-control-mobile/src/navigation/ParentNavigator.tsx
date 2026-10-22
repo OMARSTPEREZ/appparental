@@ -69,19 +69,23 @@ export const ParentNavigator: React.FC = () => {
 
   return (
     <Stack.Navigator
-      initialRouteName={isAuthenticated ? 'ParentDashboard' : 'Login'}
       screenOptions={{
         headerShown: false,
         animation: 'fade',
       }}
     >
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="ParentDashboard" component={ParentDashboardScreen} />
-      <Stack.Screen name="ParentLinkQR" component={ParentLinkQRScreen} />
-      <Stack.Screen name="ParentRules" component={ParentRulesScreen} />
-      <Stack.Screen name="ParentMonitor" component={ParentMonitorScreen} />
-      <Stack.Screen name="ParentAlerts" component={ParentAlertsScreen} />
-      <Stack.Screen name="NotificationHistory" component={NotificationHistoryScreen} />
+      {isAuthenticated ? (
+        <>
+          <Stack.Screen name="ParentDashboard" component={ParentDashboardScreen} />
+          <Stack.Screen name="ParentLinkQR" component={ParentLinkQRScreen} />
+          <Stack.Screen name="ParentRules" component={ParentRulesScreen} />
+          <Stack.Screen name="ParentMonitor" component={ParentMonitorScreen} />
+          <Stack.Screen name="ParentAlerts" component={ParentAlertsScreen} />
+          <Stack.Screen name="NotificationHistory" component={NotificationHistoryScreen} />
+        </>
+      ) : (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      )}
     </Stack.Navigator>
   );
 };

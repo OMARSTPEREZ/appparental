@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppNavigator } from './src/navigation/AppNavigator';
 
 const linking = {
-  prefixes: ['kibbo://', 'https://kibbo.app'],
+  prefixes: ['kibbo://', 'https://kibbo.app', 'http://localhost:8081'],
   config: {
     screens: {
       RoleSelection: 'role',

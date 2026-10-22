@@ -114,10 +114,10 @@ export const ParentLinkQRScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleShareApk = async () => {
     try {
-      const apkUrl = 'https://expo.dev/accounts/omarsteperez/projects/kibbo-seguridad-familiar';
+      const apkUrl = 'https://wxysmazvegmtkhbwmxre.supabase.co/storage/v1/object/public/app-downloads/kibbo.apk';
       await Share.share({
-        message: `¡Hola! Descarga e instala la app Kibbo en este teléfono para vincularlo al panel familiar: ${apkUrl}`,
-        title: 'Instalador Kibbo - Seguridad Familiar',
+        message: `🛡️ Kibbo - Seguridad Familiar\n\nDescarga e instala la app Kibbo en este teléfono para vincularlo al panel familiar:\n${apkUrl}`,
+        title: 'Kibbo - Descargar Instalador',
       });
     } catch (error: any) {
       Alert.alert('Compartir', error.message || 'No se pudo abrir el menú para compartir.');

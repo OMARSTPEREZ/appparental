@@ -13,6 +13,7 @@ import {
   TextInput,
   ScrollView,
   Linking,
+  Modal,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons, Ionicons, FontAwesome } from '@expo/vector-icons';
@@ -45,6 +46,13 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [modalAlert, setModalAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+    onClose?: () => void;
+  } | null>(null);
 
   // Pulsing electric cyan halo animation behind logo
   const haloScale = useSharedValue(1);
@@ -105,10 +113,76 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  // Helper to translate Supabase technical English errors to clean Spanish
+  const translateAuthError = (message: string): string => {
+    if (!message) return 'Ocurrió un error inesperado. Inténtalo de nuevo.';
+    const lower = message.toLowerCase();
+
+    if (
+      lower.includes('rate limit') ||
+      lower.includes('rate_limit') ||
+      lower.includes('exceeded') ||
+      lower.includes('too many requests')
+    ) {
+      return 'Has superado el límite de envíos de correo por hora. Por seguridad, espera unos minutos antes de intentar registrarte nuevamente.';
+    }
+    if (lower.includes('email address') && (lower.includes('invalid') || lower.includes('is invalid'))) {
+      return 'El correo electrónico ingresado no es válido. Verifica que esté bien escrito (ejemplo: nombre@gmail.com).';
+    }
+    if (lower.includes('invalid login credentials')) {
+      return 'El correo electrónico o la contraseña son incorrectos. Verifica tus datos.';
+    }
+    if (
+      lower.includes('user already registered') ||
+      lower.includes('already exists') ||
+      lower.includes('already registered')
+    ) {
+      return 'Este correo ya tiene una cuenta registrada en Kibbo. Puedes iniciar sesión directamente.';
+    }
+    if (lower.includes('password should be at least') || lower.includes('password is too short')) {
+      return 'La contraseña debe contener al menos 6 caracteres.';
+    }
+    if (lower.includes('email not confirmed')) {
+      return 'Tu correo electrónico aún no ha sido confirmado. Revisa tu bandeja de entrada o carpeta de spam.';
+    }
+    if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to fetch')) {
+      return 'No hay conexión con el servidor. Revisa tu conexión a internet.';
+    }
+    if (lower.includes('signup disabled') || lower.includes('signups not allowed')) {
+      return 'El registro de nuevas cuentas está deshabilitado temporalmente.';
+    }
+
+    return message.replace(/supabase/gi, 'Kibbo');
+  };
+
+  // In-app phone alert modal (displays directly inside the phone screen, matching Kibbo theme)
+  const showNotification = (
+    title: string,
+    message: string,
+    type: 'success' | 'error' | 'info' = 'info',
+    onClose?: () => void
+  ) => {
+    const isError =
+      type === 'error' ||
+      title.toLowerCase().includes('error') ||
+      title.toLowerCase().includes('inválido') ||
+      title.toLowerCase().includes('corta');
+    const finalType = isError ? 'error' : type;
+    const cleanMessage = translateAuthError(message);
+
+    setModalAlert({
+      visible: true,
+      title,
+      message: cleanMessage,
+      type: finalType,
+      onClose,
+    });
+  };
+
   // Helper to resolve accurate redirect URI without forcing localhost on mobile
   const getRedirectUri = () => {
     if (Platform.OS === 'web') {
-      return typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : '';
+      return typeof window !== 'undefined' ? `${window.location.origin}` : '';
     }
     return makeRedirectUri({
       scheme: 'kibbo',
@@ -152,7 +226,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         if (error) {
           console.warn('[Auth] Error setting session:', error.message);
-          Alert.alert('Error de Sesión', error.message);
+          showNotification('Error de Sesión', error.message);
           return;
         }
 
@@ -178,7 +252,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         if (error) {
           console.warn('[Auth] Error exchanging code for session:', error.message);
-          Alert.alert('Error de Código OAuth', error.message);
+          showNotification('Error de Código OAuth', error.message);
           return;
         }
 
@@ -199,7 +273,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       if (params.error_description || params.error) {
-        Alert.alert('Error de Autenticación', params.error_description || params.error);
+        showNotification('Error de Autenticación', params.error_description || params.error);
       }
     } catch (err: any) {
       console.error('[Auth] Error in handleAuthUrl:', err);
@@ -231,6 +305,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         handleAuthUrl(url);
       }
     });
+
+    // On Web, immediately inspect the window URL for OAuth access_token or code
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const currentUrl = window.location.href;
+      if (currentUrl.includes('access_token=') || currentUrl.includes('code=')) {
+        handleAuthUrl(currentUrl);
+      }
+    }
 
     return () => {
       linkSub.remove();
@@ -285,16 +367,17 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const redirectUrl = getRedirectUri();
       console.log('[Auth] Google OAuth redirectUrl:', redirectUrl);
 
+      // Always pass skipBrowserRedirect: true to prevent Supabase JS from doing a competing redirect
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
-          skipBrowserRedirect: Platform.OS !== 'web',
+          skipBrowserRedirect: true,
         },
       });
 
       if (error) {
-        Alert.alert('Google Sign-In', error.message);
+        showNotification('Google Sign-In', error.message);
         setGoogleLoading(false);
         return;
       }
@@ -311,15 +394,35 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
     } catch (err: any) {
       console.error('Google Auth Error:', err);
-      Alert.alert('Error de Autenticación', err.message || 'No se pudo conectar con Google.');
+      showNotification('Error de Autenticación', err.message || 'No se pudo conectar con Google.');
     } finally {
       setGoogleLoading(false);
     }
   };
 
   const handleEmailAuth = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Campos incompletos', 'Ingresa tu correo y contraseña.');
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      showNotification('Campos incompletos', 'Ingresa tu correo y contraseña.');
+      return;
+    }
+
+    // Client-side email validation
+    if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      showNotification(
+        'Correo inválido',
+        'Debes ingresar un correo electrónico con formato válido (ejemplo: usuario@correo.com).'
+      );
+      return;
+    }
+
+    if (cleanPassword.length < 6) {
+      showNotification(
+        'Contraseña corta',
+        'Por seguridad, la contraseña debe tener al menos 6 caracteres.'
+      );
       return;
     }
 
@@ -329,8 +432,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         // Register new parent in Supabase Auth
         const redirectUrl = getRedirectUri();
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
+          email: cleanEmail,
+          password: cleanPassword,
           options: {
             emailRedirectTo: redirectUrl,
             data: {
@@ -340,14 +443,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         });
 
         if (error) {
-          Alert.alert('Error al registrarse', error.message);
+          showNotification('Error al registrarse', error.message);
           return;
         }
 
         if (data?.user) {
           await syncParentRecord(
             data.user.id,
-            data.user.email || email.trim(),
+            data.user.email || cleanEmail,
             fullName.trim() || 'Padre / Tutor',
             'https://api.dicebear.com/7.x/bottts/png?seed=parent'
           );
@@ -358,36 +461,30 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               routes: [{ name: 'ParentDashboard' }],
             });
           } else {
+            // Registration completed; switch view to login so parent can sign in
             setIsSignUp(false);
-            if (Platform.OS === 'web') {
-              if (typeof window !== 'undefined') {
-                window.alert('¡Cuenta creada con éxito en Supabase! Ya puedes iniciar sesión con tu correo y contraseña.');
-              }
-            } else {
-              Alert.alert(
-                'Cuenta Creada con Éxito',
-                'Tu cuenta ha sido registrada en Supabase. Ahora puedes iniciar sesión con tu correo y contraseña.',
-                [{ text: 'Iniciar Sesión' }]
-              );
-            }
+            showNotification(
+              '¡Cuenta creada con éxito!',
+              'Tu cuenta ha sido registrada en Supabase. Ahora puedes iniciar sesión con tu correo y contraseña.'
+            );
           }
         }
       } else {
         // Sign in existing parent in Supabase Auth
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password.trim(),
+          email: cleanEmail,
+          password: cleanPassword,
         });
 
         if (error) {
-          Alert.alert('Error al iniciar sesión', error.message);
+          showNotification('Error al iniciar sesión', error.message);
           return;
         }
 
         if (data?.user) {
           await syncParentRecord(
             data.user.id,
-            data.user.email || email.trim(),
+            data.user.email || cleanEmail,
             data.user.user_metadata?.full_name || 'Padre de Familia',
             'https://api.dicebear.com/7.x/bottts/png?seed=parent'
           );
@@ -400,7 +497,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
     } catch (err: any) {
       console.error('Email Auth Error:', err);
-      Alert.alert('Error de Autenticación', err.message || 'Ocurrió un error inesperado.');
+      showNotification('Error de Autenticación', err.message || 'Ocurrió un error inesperado.');
     } finally {
       setLoading(false);
     }
@@ -592,6 +689,68 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
       </ScrollView>
+
+      {/* In-App Phone Modal Alert */}
+      {modalAlert && (
+        <Modal
+          visible={modalAlert.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            const cb = modalAlert.onClose;
+            setModalAlert(null);
+            cb?.();
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View
+                style={[
+                  styles.modalIconWrap,
+                  modalAlert.type === 'success'
+                    ? styles.modalIconSuccess
+                    : modalAlert.type === 'error'
+                    ? styles.modalIconError
+                    : styles.modalIconInfo,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    modalAlert.type === 'success'
+                      ? 'checkmark-circle'
+                      : modalAlert.type === 'error'
+                      ? 'alert-circle'
+                      : 'information-circle'
+                  }
+                  size={38}
+                  color={
+                    modalAlert.type === 'success'
+                      ? '#10B981'
+                      : modalAlert.type === 'error'
+                      ? '#EF4444'
+                      : theme.colors.parentAccent
+                  }
+                />
+              </View>
+
+              <Text style={styles.modalTitle}>{modalAlert.title}</Text>
+              <Text style={styles.modalMessage}>{modalAlert.message}</Text>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                activeOpacity={0.85}
+                onPress={() => {
+                  const cb = modalAlert.onClose;
+                  setModalAlert(null);
+                  cb?.();
+                }}
+              >
+                <Text style={styles.modalButtonText}>Aceptar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };
@@ -809,5 +968,78 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     textAlign: 'center',
     marginTop: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 8, 15, 0.78)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 330,
+    backgroundColor: '#0F172A',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIconSuccess: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  modalIconError: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  modalIconInfo: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 22,
+  },
+  modalButton: {
+    width: '100%',
+    backgroundColor: theme.colors.parentAccent,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.glowParent,
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
