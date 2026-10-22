@@ -114,9 +114,9 @@ export const ParentLinkQRScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleShareApk = async () => {
     try {
-      const apkUrl = 'https://wxysmazvegmtkhbwmxre.supabase.co/storage/v1/object/public/app-downloads/kibbo.apk';
+      const apkUrl = 'https://expo.dev/artifacts/eas/SYO5TVBi-L25cbe8_jjPl9IB_tdH1ML3_ke2prdbOvg.apk';
       await Share.share({
-        message: `🛡️ Kibbo - Seguridad Familiar\n\nDescarga e instala la app Kibbo en este teléfono para vincularlo al panel familiar:\n${apkUrl}`,
+        message: `🛡️ Kibbo - Seguridad Familiar\n\nDescarga el instalador oficial de Kibbo para vincular el teléfono de tu hijo:\n${apkUrl}`,
         title: 'Kibbo - Descargar Instalador',
       });
     } catch (error: any) {

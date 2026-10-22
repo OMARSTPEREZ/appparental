@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kibbo - Seguridad Familiar</title>
+  <title>Kibbo - Descargar Aplicación</title>
   
   <!-- WhatsApp & Social Open Graph Tags -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Kibbo - Seguridad Familiar">
-  <meta property="og:description" content="Descarga la aplicaci&#xF3;n Kibbo en el dispositivo de tu hijo para protegerlo y vincularlo al panel familiar.">
+  <meta property="og:description" content="Descarga la aplicación oficial de Kibbo para vincular y proteger el dispositivo de tu hijo en tiempo real.">
   <meta property="og:image" content="https://wxysmazvegmtkhbwmxre.supabase.co/storage/v1/object/public/app-downloads/logo.png">
   <meta property="og:image:width" content="600">
   <meta property="og:image:height" content="600">
-  <meta name="twitter:card" content="summary_large_image">
   
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,38 +24,59 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      padding: 20px;
       text-align: center;
     }
     .card {
-      background: rgba(26, 31, 56, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(26, 31, 56, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 28px;
-      padding: 44px 28px;
+      padding: 38px 26px;
       max-width: 420px;
       width: 100%;
-      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(16px);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(18px);
+    }
+    .logo-container {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 20px;
+      background: rgba(0, 210, 255, 0.1);
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 25px rgba(0, 210, 255, 0.25);
     }
     .logo {
-      width: 110px;
-      height: 110px;
+      width: 80px;
+      height: 80px;
       object-fit: contain;
-      margin-bottom: 22px;
-      filter: drop-shadow(0 10px 20px rgba(0, 210, 255, 0.35));
     }
     h1 {
       font-size: 26px;
       font-weight: 800;
       letter-spacing: -0.5px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       color: #FFFFFF;
+    }
+    .tagline {
+      display: inline-block;
+      background: rgba(0, 210, 255, 0.15);
+      color: #00D2FF;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     p {
       color: #94A3B8;
-      font-size: 15px;
+      font-size: 14px;
       line-height: 1.5;
-      margin-bottom: 30px;
+      margin-bottom: 28px;
     }
     .btn-download {
       display: flex;
@@ -68,40 +88,85 @@
       text-decoration: none;
       font-weight: 700;
       font-size: 17px;
-      padding: 18px 28px;
+      padding: 18px 24px;
       border-radius: 16px;
       box-shadow: 0 10px 25px rgba(0, 119, 254, 0.45);
       transition: all 0.2s ease;
+      cursor: pointer;
     }
     .btn-download:hover {
       transform: translateY(-2px);
-      box-shadow: 0 14px 30px rgba(0, 119, 254, 0.55);
+      box-shadow: 0 14px 30px rgba(0, 119, 254, 0.6);
     }
     .btn-download:active {
       transform: translateY(0);
     }
-    .info {
-      margin-top: 24px;
+    .steps {
+      margin-top: 26px;
+      padding-top: 22px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: left;
+    }
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 12px;
       font-size: 13px;
-      color: #64748B;
+      color: #CBD5E1;
+    }
+    .step-num {
+      background: #0077FE;
+      color: #FFFFFF;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      font-size: 11px;
+      font-weight: bold;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .badge {
+      font-size: 11px;
+      color: #64748B;
+      margin-top: 16px;
+      display: block;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <img src="https://wxysmazvegmtkhbwmxre.supabase.co/storage/v1/object/public/app-downloads/logo.png" alt="Kibbo" class="logo">
-    <h1>Kibbo</h1>
-    <p>Seguridad y protecci&#xF3;n para tus hijos. Descarga e instala la aplicaci&#xF3;n en el celular de tu hijo para iniciar la vinculaci&#xF3;n.</p>
-    <a href="https://wxysmazvegmtkhbwmxre.supabase.co/storage/v1/object/public/app-downloads/kibbo.apk" class="btn-download" download="kibbo.apk">
-      <span>&#x2B07;&#xFE0F;</span> Descargar APK de Kibbo
-    </a>
-    <div class="info">
-      <span>&#x2714;&#xFE0F;</span> Archivo oficial de instalaci&#xF3;n directa (APK)
+    <div class="logo-container">
+      <img src="https://wxysmazvegmtkhbwmxre.supabase.co/storage/v1/object/public/app-downloads/logo.png" alt="Kibbo" class="logo">
     </div>
+    
+    <span class="tagline">Seguridad Familiar</span>
+    <h1>Kibbo</h1>
+    <p>Protecci&#xF3;n y monitoreo en tiempo real. Toca el bot&#xF3;n para descargar el instalador oficial directo a este dispositivo.</p>
+    
+    <a id="downloadBtn" href="https://expo.dev/artifacts/eas/SYO5TVBi-L25cbe8_jjPl9IB_tdH1ML3_ke2prdbOvg.apk" class="btn-download" download="kibbo-seguridad.apk">
+      <span>&#x2B07;&#xFE0F;</span> Descargar APK Actualizado
+    </a>
+    
+    <div class="steps">
+      <div class="step-item">
+        <span class="step-num">1</span>
+        <span>Presiona <b>Descargar APK Actualizado</b>.</span>
+      </div>
+      <div class="step-item">
+        <span class="step-num">2</span>
+        <span>Abre el archivo descargado e inst&#xE1;lalo.</span>
+      </div>
+      <div class="step-item">
+        <span class="step-num">3</span>
+        <span>Abre Kibbo y selecciona <b>Dispositivo del Hijo</b>.</span>
+      </div>
+    </div>
+    
+    <span class="badge">&#x2714;&#xFE0F; Versi&#xF3;n 1.0 Oficial &#x2022; Android APK (Build Verificado)</span>
   </div>
 </body>
 </html>
