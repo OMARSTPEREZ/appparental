@@ -1209,6 +1209,26 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.unhideOptionDesc}>
                   Para cambiar ajustes o desvincular la app una vez abierta, se exigirá tu PIN actual: <Text style={{ color: '#F8FAFC', fontWeight: '800' }}>{currentAdminPin}</Text>
                 </Text>
+                <TouchableOpacity
+                  style={{
+                    marginTop: 10,
+                    backgroundColor: '#F59E0B',
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                  onPress={() => {
+                    setIsUnhideModalVisible(false);
+                    setIsPinModalVisible(true);
+                  }}
+                >
+                  <Ionicons name="key-outline" size={16} color="#FFFFFF" />
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>Cambiar este PIN</Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
 
@@ -1218,6 +1238,115 @@ export const ParentDashboardScreen: React.FC<Props> = ({ navigation }) => {
             >
               <Text style={styles.unhideCloseBtnText}>Entendido</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal para Cambiar el PIN de Administrador */}
+      <Modal
+        visible={isPinModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsPinModalVisible(false)}
+      >
+        <View style={styles.unhideModalBackdrop}>
+          <View style={[styles.unhideModalCard, { maxHeight: '80%' }]}>
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(245, 158, 11, 0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <Ionicons name="shield-checkmark" size={28} color="#F59E0B" />
+              </View>
+              <Text style={styles.unhideModalTitle}>Cambiar PIN Maestro</Text>
+              <Text style={[styles.unhideModalSubtitle, { textAlign: 'center' }]}>
+                Este PIN se usará para autorizar desinstalaciones o cambiar ajustes en el celular de tus hijos.
+              </Text>
+            </View>
+
+            <View style={{ width: '100%', marginBottom: 16 }}>
+              <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 6, fontWeight: '600' }}>Nuevo PIN (4 dígitos numéricos):</Text>
+              <TextInput
+                style={{
+                  backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.15)',
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  color: '#FFFFFF',
+                  fontSize: 18,
+                  textAlign: 'center',
+                  letterSpacing: 4,
+                  fontWeight: '700',
+                }}
+                value={newAdminPin}
+                onChangeText={setNewAdminPin}
+                placeholder="Ej. 1234"
+                placeholderTextColor="#64748B"
+                keyboardType="numeric"
+                maxLength={6}
+                secureTextEntry
+              />
+            </View>
+
+            <View style={{ width: '100%', marginBottom: 24 }}>
+              <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 6, fontWeight: '600' }}>Confirmar Nuevo PIN:</Text>
+              <TextInput
+                style={{
+                  backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.15)',
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  color: '#FFFFFF',
+                  fontSize: 18,
+                  textAlign: 'center',
+                  letterSpacing: 4,
+                  fontWeight: '700',
+                }}
+                value={confirmAdminPin}
+                onChangeText={setConfirmAdminPin}
+                placeholder="Repite el PIN"
+                placeholderTextColor="#64748B"
+                keyboardType="numeric"
+                maxLength={6}
+                secureTextEntry
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
+                onPress={() => {
+                  setIsPinModalVisible(false);
+                  setNewAdminPin('');
+                  setConfirmAdminPin('');
+                }}
+              >
+                <Text style={{ color: '#94A3B8', fontWeight: '700' }}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F59E0B',
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
+                disabled={isSavingPin}
+                onPress={handleSaveNewAdminPin}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+                  {isSavingPin ? 'Guardando...' : 'Guardar PIN'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
